@@ -76,6 +76,12 @@ public:
 		FOCUS_BEHAVIOR_ENABLED,
 	};
 
+	enum InteractableMode {
+		INTERACTABLE_MODE_INHERITED,
+		INTERACTABLE_MODE_DISABLED,
+		INTERACTABLE_MODE_ENABLED,
+	};
+
 	enum SizeFlags {
 		SIZE_SHRINK_BEGIN = 0,
 		SIZE_FILL = 1,
@@ -284,6 +290,9 @@ private:
 		MouseBehaviorRecursive mouse_behavior_recursive = MOUSE_BEHAVIOR_INHERITED;
 		bool parent_mouse_behavior_recursive_enabled = true;
 		bool force_pass_scroll_events = true;
+		InteractableMode interactable = INTERACTABLE_MODE_INHERITED;
+		bool parent_interactable = true;
+		bool interactable_in_tree = true; // Last value of is_interactable_in_tree(), to notify changes.
 		real_t raycast_padding[4] = {};
 
 		bool clip_contents = false;
@@ -418,11 +427,20 @@ private:
 
 	bool _has_point_for_clipping(const Point2 &p_point) const;
 
+	void _update_interactable();
+	bool _is_parent_interactable() const;
+	void _set_parent_interactable(bool p_parent_interactable);
+	void _propagate_interactable(bool p_parent_interactable);
+	static void _propagate_interactable_to_children(Node *p_node, bool p_interactable);
+
 	// Extra properties.
 
 	static int root_layout_direction;
 
 protected:
+	// Called when the control starts or stops receiving input, from its interactable property or a parent.
+	virtual void _interactable_changed() {}
+
 	// Dynamic properties.
 
 	bool _set(const StringName &p_name, const Variant &p_value);
@@ -789,6 +807,10 @@ public:
 	void set_disable_visibility_clip(bool p_ignore);
 	bool is_visibility_clip_disabled() const;
 
+	void set_interactable(InteractableMode p_behavior);
+	InteractableMode get_interactable() const;
+	bool is_interactable_in_tree() const;
+
 	void set_raycast_padding(Side p_side, real_t p_value);
 	real_t get_raycast_padding(Side p_side) const;
 	Rect2 get_raycast_rect() const;
@@ -889,6 +911,7 @@ public:
 
 VARIANT_ENUM_CAST(Control::FocusMode);
 VARIANT_ENUM_CAST(Control::FocusBehaviorRecursive);
+VARIANT_ENUM_CAST(Control::InteractableMode);
 VARIANT_ENUM_CAST(Control::MouseBehaviorRecursive);
 VARIANT_BITFIELD_CAST(Control::SizeFlags);
 VARIANT_ENUM_CAST(Control::CursorShape);
