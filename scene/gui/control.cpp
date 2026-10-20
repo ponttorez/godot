@@ -2553,6 +2553,43 @@ bool Control::has_point(const Point2 &p_point) const {
 	if (GDVIRTUAL_CALL(_has_point, p_point, ret)) {
 		return ret;
 	}
+	return get_raycast_rect().has_point(p_point);
+}
+
+void Control::set_raycast_padding(Side p_side, real_t p_value) {
+	ERR_MAIN_THREAD_GUARD;
+	ERR_FAIL_INDEX((int)p_side, 4);
+	if (data.raycast_padding[p_side] == p_value) {
+		return;
+	}
+	data.raycast_padding[p_side] = p_value;
+	if (is_inside_tree()) {
+		// The control under a mouse that doesn't move may change.
+		get_viewport()->update_mouse_cursor_state();
+	}
+}
+
+real_t Control::get_raycast_padding(Side p_side) const {
+	ERR_READ_THREAD_GUARD_V(0);
+	ERR_FAIL_INDEX_V((int)p_side, 4, 0);
+	return data.raycast_padding[p_side];
+}
+
+Rect2 Control::get_raycast_rect() const {
+	ERR_READ_THREAD_GUARD_V(Rect2());
+	// Positive padding shrinks the area that receives input, negative padding expands it.
+	Rect2 rect = Rect2(Point2(), get_size()).grow_individual(-data.raycast_padding[SIDE_LEFT], -data.raycast_padding[SIDE_TOP], -data.raycast_padding[SIDE_RIGHT], -data.raycast_padding[SIDE_BOTTOM]);
+	// Padding larger than the control leaves no area, instead of a rect with a negative size.
+	rect.size = rect.size.maxf(0.0);
+	return rect;
+}
+
+bool Control::_has_point_for_clipping(const Point2 &p_point) const {
+	// Children are drawn up to the control's rect, so the raycast padding doesn't clip them.
+	bool ret;
+	if (GDVIRTUAL_CALL(_has_point, p_point, ret)) {
+		return ret;
+	}
 	return Rect2(Point2(), get_size()).has_point(p_point);
 }
 
@@ -4877,6 +4914,9 @@ void Control::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_clip_contents", "enable"), &Control::set_clip_contents);
 	ClassDB::bind_method(D_METHOD("is_clipping_contents"), &Control::is_clipping_contents);
 
+	ClassDB::bind_method(D_METHOD("set_raycast_padding", "side", "padding"), &Control::set_raycast_padding);
+	ClassDB::bind_method(D_METHOD("get_raycast_padding", "side"), &Control::get_raycast_padding);
+
 	ClassDB::bind_method(D_METHOD("grab_click_focus"), &Control::grab_click_focus);
 
 	ClassDB::bind_method(D_METHOD("set_drag_forwarding", "drag_func", "can_drop_func", "drop_func"), &Control::set_drag_forwarding);
@@ -5015,6 +5055,11 @@ void Control::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mouse_behavior_recursive", PROPERTY_HINT_ENUM, "Inherited,Disabled,Enabled"), "set_mouse_behavior_recursive", "get_mouse_behavior_recursive");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "mouse_force_pass_scroll_events"), "set_force_pass_scroll_events", "is_force_pass_scroll_events");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mouse_default_cursor_shape", PROPERTY_HINT_ENUM, "Arrow,I-Beam,Pointing Hand,Cross,Wait,Busy,Drag,Can Drop,Forbidden,Vertical Resize,Horizontal Resize,Secondary Diagonal Resize,Main Diagonal Resize,Move,Vertical Split,Horizontal Split,Help"), "set_default_cursor_shape", "get_default_cursor_shape");
+	ADD_SUBGROUP("Raycast Padding", "raycast_padding_");
+	ADD_PROPERTYI(PropertyInfo(Variant::FLOAT, "raycast_padding_left", PROPERTY_HINT_RANGE, "-1024,1024,1,or_less,or_greater,suffix:px"), "set_raycast_padding", "get_raycast_padding", SIDE_LEFT);
+	ADD_PROPERTYI(PropertyInfo(Variant::FLOAT, "raycast_padding_top", PROPERTY_HINT_RANGE, "-1024,1024,1,or_less,or_greater,suffix:px"), "set_raycast_padding", "get_raycast_padding", SIDE_TOP);
+	ADD_PROPERTYI(PropertyInfo(Variant::FLOAT, "raycast_padding_right", PROPERTY_HINT_RANGE, "-1024,1024,1,or_less,or_greater,suffix:px"), "set_raycast_padding", "get_raycast_padding", SIDE_RIGHT);
+	ADD_PROPERTYI(PropertyInfo(Variant::FLOAT, "raycast_padding_bottom", PROPERTY_HINT_RANGE, "-1024,1024,1,or_less,or_greater,suffix:px"), "set_raycast_padding", "get_raycast_padding", SIDE_BOTTOM);
 
 	ADD_GROUP("Input", "");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "shortcut_context", PROPERTY_HINT_NODE_TYPE, "Node"), "set_shortcut_context", "get_shortcut_context");
