@@ -89,6 +89,10 @@ private:
 	mutable SelfList<Node> xform_change;
 
 	RID canvas_item;
+	// The node's own canvas item. canvas_item is swapped with drawing_canvas_item while drawing.
+	RID own_canvas_item;
+	// When valid, what the node draws goes into it instead of canvas_item, see set_drawing_canvas_item().
+	RID drawing_canvas_item;
 	StringName canvas_group;
 
 	CanvasLayer *canvas_layer = nullptr;
@@ -191,6 +195,15 @@ protected:
 #endif
 
 	virtual void _physics_interpolated_changed() override;
+
+	// Makes what the node draws go into p_canvas_item instead of its own canvas item. While drawing, get_canvas_item()
+	// returns p_canvas_item, so the drawing that uses it directly goes there too. An invalid RID draws as usual.
+	void set_drawing_canvas_item(RID p_canvas_item);
+	// The node's own canvas item, also while drawing into another one. Use it for the transform, clip, and other
+	// properties of the node itself, which must not go to the drawing canvas item.
+	_FORCE_INLINE_ RID get_own_canvas_item() const {
+		return own_canvas_item;
+	}
 
 	virtual void _update_self_texture_repeat(RSE::CanvasItemTextureRepeat p_texture_repeat);
 	virtual void _update_self_texture_filter(RSE::CanvasItemTextureFilter p_texture_filter);

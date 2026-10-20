@@ -152,7 +152,7 @@ void RendererCanvasCull::_collect_ysort_children(RendererCanvasCull::Item *p_can
 				r_index++;
 
 				if (child_items[i]->sort_y) {
-					_collect_ysort_children(child_items[i], child_items[i]->use_parent_material ? p_material_owner : child_items[i], p_modulate * child_items[i]->modulate, r_items, r_index, r_ysort_children_count, abs_z, p_canvas_cull_mask);
+					_collect_ysort_children(child_items[i], child_items[i]->use_parent_material ? p_material_owner : child_items[i], p_modulate * child_items[i]->modulate * _get_group_children_modulate(child_items[i]), r_items, r_index, r_ysort_children_count, abs_z, p_canvas_cull_mask);
 				}
 			} else {
 				r_ysort_children_count--;
@@ -252,8 +252,10 @@ void RendererCanvasCull::_attach_canvas_item_for_draw(RendererCanvasCull::Item *
 			}
 
 			// Very important that this is cleared after used in RendererCanvasRender to avoid
-			// potential crashes.
-			r_canvas_group_from->canvas_group_owner = ci;
+			// potential crashes. The groups inside this one are attached first, the innermost group that begins here is kept.
+			if (r_canvas_group_from->canvas_group_owner == nullptr) {
+				r_canvas_group_from->canvas_group_owner = ci;
+			}
 		}
 	}
 
@@ -299,6 +301,16 @@ void RendererCanvasCull::_attach_canvas_item_for_draw(RendererCanvasCull::Item *
 		// If repeat source does not draw itself it still needs transform updated as its child items' repeat offsets are relative to it.
 		ci->final_transform = p_transform;
 	}
+}
+
+// The modulation a canvas group gives its children when it isn't drawn as a group, e.g. inside another group or when
+// its children are Y-sorted: its self modulation, which would apply to the whole group.
+Color RendererCanvasCull::_get_group_children_modulate(const Item *p_canvas_item) {
+	return p_canvas_item->canvas_group != nullptr ? p_canvas_item->self_modulate : Color(1, 1, 1, 1);
+}
+
+bool RendererCanvasCull::_uses_canvas_group(const Item *p_canvas_item) {
+	return p_canvas_item->canvas_group != nullptr && (p_canvas_item->canvas_group->fit_empty || p_canvas_item->commands != nullptr);
 }
 
 void RendererCanvasCull::_cull_canvas_item(Item *p_canvas_item, const Transform2D &p_parent_xform, const Rect2 &p_clip_rect, const Color &p_modulate, int p_z, RendererCanvasRender::Item **r_z_list, RendererCanvasRender::Item **r_z_last_list, Item *p_canvas_clip, Item *p_material_owner, bool p_is_already_y_sorted, uint32_t p_canvas_cull_mask, const Point2 &p_repeat_size, int p_repeat_times, RendererCanvasRender::Item *p_repeat_source_item) {
@@ -444,13 +456,16 @@ void RendererCanvasCull::_cull_canvas_item(Item *p_canvas_item, const Transform2
 			child_item_count = ci->ysort_children_count + 1;
 			child_items = (Item **)alloca(child_item_count * sizeof(Item *));
 
+			// Y-sorted descendants are flattened into one sorted list, so a canvas group here only gets the items sorted before
+			// it. Its children keep their modulation, unlike in a group drawn as a group, as they can be drawn outside of it,
+			// and they get the self modulation of the group, so the group still fades them.
 			ci->ysort_xform = Transform2D();
 			ci->ysort_modulate = Color(ci->modulate[0] ? 1 / ci->modulate[0] : 0, ci->modulate[1] ? 1 / ci->modulate[1] : 0, ci->modulate[2] ? 1 / ci->modulate[2] : 0, ci->modulate[3] ? 1 / ci->modulate[3] : 0);
 			ci->ysort_index = 0;
 			ci->ysort_parent_abs_z_index = parent_z;
 			child_items[0] = ci;
 			int i = 1;
-			_collect_ysort_children(ci, p_material_owner, Color(1, 1, 1, 1), child_items, i, child_item_count, p_z, p_canvas_cull_mask);
+			_collect_ysort_children(ci, p_material_owner, _get_group_children_modulate(ci), child_items, i, child_item_count, p_z, p_canvas_cull_mask);
 
 			SortArray<Item *, ItemYSort> sorter;
 			sorter.sort(child_items, child_item_count);
@@ -460,34 +475,48 @@ void RendererCanvasCull::_cull_canvas_item(Item *p_canvas_item, const Transform2
 			}
 		} else {
 			RendererCanvasRender::Item *canvas_group_from = nullptr;
-			bool use_canvas_group = ci->canvas_group != nullptr && (ci->canvas_group->fit_empty || ci->commands != nullptr);
+			const bool use_canvas_group = _uses_canvas_group(ci);
 			if (use_canvas_group) {
 				int zidx = p_z - RSE::CANVAS_ITEM_Z_MIN;
 				canvas_group_from = r_z_last_list[zidx];
+				ci->canvas_group_parent = nullptr; // Its Y-sorted children are drawn outside of it.
 			}
 
 			_attach_canvas_item_for_draw(ci, p_canvas_clip, r_z_list, r_z_last_list, final_xform, p_clip_rect, global_rect, modulate, p_z, p_material_owner, use_canvas_group, canvas_group_from);
 		}
 	} else {
 		RendererCanvasRender::Item *canvas_group_from = nullptr;
-		bool use_canvas_group = ci->canvas_group != nullptr && (ci->canvas_group->fit_empty || ci->commands != nullptr);
+		const bool use_canvas_group = _uses_canvas_group(ci);
+		// The children of a canvas group are drawn into it unmodulated, the group applies the modulation once when drawn.
+		// A group inside another one that isn't drawn as a group gives its children its self modulation instead.
+		Color children_modulate = modulate;
+		Item *parent_canvas_group = current_canvas_group;
+		const int parent_canvas_group_z = current_canvas_group_z;
 		if (use_canvas_group) {
 			int zidx = p_z - RSE::CANVAS_ITEM_Z_MIN;
 			canvas_group_from = r_z_last_list[zidx];
+			children_modulate = Color(1, 1, 1, 1);
+			// Drawn into the group around it when they share the z index, as the group only draws the items of its z index.
+			ci->canvas_group_parent = (parent_canvas_group != nullptr && parent_canvas_group_z == p_z) ? parent_canvas_group : nullptr;
+			current_canvas_group = ci;
+			current_canvas_group_z = p_z;
+		} else if (parent_canvas_group != nullptr) {
+			children_modulate *= _get_group_children_modulate(ci);
 		}
-
 		for (int i = 0; i < child_item_count; i++) {
 			if (!child_items[i]->behind && !use_canvas_group) {
 				continue;
 			}
-			_cull_canvas_item(child_items[i], final_xform, p_clip_rect, modulate, p_z, r_z_list, r_z_last_list, (Item *)ci->final_clip_owner, p_material_owner, false, p_canvas_cull_mask, repeat_size, repeat_times, repeat_source_item);
+			_cull_canvas_item(child_items[i], final_xform, p_clip_rect, children_modulate, p_z, r_z_list, r_z_last_list, (Item *)ci->final_clip_owner, p_material_owner, false, p_canvas_cull_mask, repeat_size, repeat_times, repeat_source_item);
 		}
+		current_canvas_group = parent_canvas_group;
+		current_canvas_group_z = parent_canvas_group_z;
 		_attach_canvas_item_for_draw(ci, p_canvas_clip, r_z_list, r_z_last_list, final_xform, p_clip_rect, global_rect, modulate, p_z, p_material_owner, use_canvas_group, canvas_group_from);
 		for (int i = 0; i < child_item_count; i++) {
 			if (child_items[i]->behind || use_canvas_group) {
 				continue;
 			}
-			_cull_canvas_item(child_items[i], final_xform, p_clip_rect, modulate, p_z, r_z_list, r_z_last_list, (Item *)ci->final_clip_owner, p_material_owner, false, p_canvas_cull_mask, repeat_size, repeat_times, repeat_source_item);
+			_cull_canvas_item(child_items[i], final_xform, p_clip_rect, children_modulate, p_z, r_z_list, r_z_last_list, (Item *)ci->final_clip_owner, p_material_owner, false, p_canvas_cull_mask, repeat_size, repeat_times, repeat_source_item);
 		}
 	}
 }

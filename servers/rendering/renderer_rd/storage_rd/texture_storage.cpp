@@ -4248,7 +4248,12 @@ void TextureStorage::_clear_render_target(RenderTarget *rt) {
 		rt->backbuffer = RID();
 		rt->backbuffer_mipmaps.clear();
 		rt->backbuffer_uniform_set = RID(); //chain deleted
+		rt->backbuffer_nested_uniform_set = RID(); //chain deleted
 	}
+	for (const RenderTarget::CanvasGroupBuffer &buffer : rt->canvas_group_buffers) {
+		RD::get_singleton()->free_rid(buffer.texture); // Frees the framebuffer and uniform sets too.
+	}
+	rt->canvas_group_buffers.clear();
 
 	_render_target_clear_sdf(rt);
 
@@ -5171,6 +5176,126 @@ void TextureStorage::render_target_clear_back_buffer(RID p_render_target, const 
 		copy_effects->set_color(rt->backbuffer_mipmap0, p_color, region, !rt->use_hdr);
 	} else {
 		copy_effects->set_color_raster(rt->backbuffer_mipmap0, p_color, region);
+	}
+}
+
+// The buffer of a canvas group inside other ones, allocated when first needed. Unlike the backbuffer, it has no mipmaps.
+TextureStorage::RenderTarget::CanvasGroupBuffer *TextureStorage::_get_render_target_canvas_group_buffer(RenderTarget *rt, int p_level) {
+	ERR_FAIL_COND_V(p_level < 1, nullptr);
+	while ((int)rt->canvas_group_buffers.size() < p_level) {
+		RD::TextureFormat tf;
+		tf.format = rt->color_format;
+		tf.width = rt->size.width;
+		tf.height = rt->size.height;
+		tf.texture_type = RD::TEXTURE_TYPE_2D;
+		tf.usage_bits = RD::TEXTURE_USAGE_COLOR_ATTACHMENT_BIT | RD::TEXTURE_USAGE_STORAGE_BIT | RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_CAN_COPY_TO_BIT;
+
+		RenderTarget::CanvasGroupBuffer buffer;
+		buffer.texture = RD::get_singleton()->texture_create(tf, RD::TextureView());
+		RD::get_singleton()->set_resource_name(buffer.texture, "Render Target Canvas Group Buffer " + itos(rt->canvas_group_buffers.size() + 1));
+		Vector<RID> fb_tex;
+		fb_tex.push_back(buffer.texture);
+		buffer.framebuffer = RD::get_singleton()->framebuffer_create(fb_tex);
+		rt->canvas_group_buffers.push_back(buffer);
+	}
+	return &rt->canvas_group_buffers[p_level - 1];
+}
+
+RID TextureStorage::render_target_get_canvas_group_texture(RID p_render_target, int p_level) {
+	RenderTarget *rt = render_target_owner.get_or_null(p_render_target);
+	ERR_FAIL_NULL_V(rt, RID());
+	if (p_level == 0) {
+		if (!rt->backbuffer.is_valid()) {
+			_create_render_target_backbuffer(rt);
+		}
+		return rt->backbuffer;
+	}
+	RenderTarget::CanvasGroupBuffer *buffer = _get_render_target_canvas_group_buffer(rt, p_level);
+	return buffer ? buffer->texture : RID();
+}
+
+RID TextureStorage::render_target_get_canvas_group_framebuffer(RID p_render_target, int p_level) {
+	if (p_level == 0) {
+		return render_target_get_rd_backbuffer_framebuffer(p_render_target);
+	}
+	RenderTarget *rt = render_target_owner.get_or_null(p_render_target);
+	ERR_FAIL_NULL_V(rt, RID());
+	RenderTarget::CanvasGroupBuffer *buffer = _get_render_target_canvas_group_buffer(rt, p_level);
+	return buffer ? buffer->framebuffer : RID();
+}
+
+RID TextureStorage::render_target_get_canvas_group_uniform_set(RID p_render_target, int p_level, bool p_nested) {
+	RenderTarget *rt = render_target_owner.get_or_null(p_render_target);
+	ERR_FAIL_NULL_V(rt, RID());
+	if (p_level == 0) {
+		return p_nested ? rt->backbuffer_nested_uniform_set : rt->backbuffer_uniform_set;
+	}
+	RenderTarget::CanvasGroupBuffer *buffer = _get_render_target_canvas_group_buffer(rt, p_level);
+	ERR_FAIL_NULL_V(buffer, RID());
+	return p_nested ? buffer->nested_uniform_set : buffer->uniform_set;
+}
+
+void TextureStorage::render_target_set_canvas_group_uniform_set(RID p_render_target, int p_level, bool p_nested, RID p_uniform_set) {
+	RenderTarget *rt = render_target_owner.get_or_null(p_render_target);
+	ERR_FAIL_NULL(rt);
+	if (p_level == 0) {
+		(p_nested ? rt->backbuffer_nested_uniform_set : rt->backbuffer_uniform_set) = p_uniform_set;
+		return;
+	}
+	RenderTarget::CanvasGroupBuffer *buffer = _get_render_target_canvas_group_buffer(rt, p_level);
+	ERR_FAIL_NULL(buffer);
+	(p_nested ? buffer->nested_uniform_set : buffer->uniform_set) = p_uniform_set;
+}
+
+void TextureStorage::render_target_clear_canvas_group_buffer(RID p_render_target, int p_level) {
+	if (p_level == 0) {
+		render_target_clear_back_buffer(p_render_target, Rect2i(), Color(0, 0, 0, 0));
+		return;
+	}
+	RenderTarget *rt = render_target_owner.get_or_null(p_render_target);
+	ERR_FAIL_NULL(rt);
+	CopyEffects *copy_effects = CopyEffects::get_singleton();
+	ERR_FAIL_NULL(copy_effects);
+	RenderTarget::CanvasGroupBuffer *buffer = _get_render_target_canvas_group_buffer(rt, p_level);
+	ERR_FAIL_NULL(buffer);
+
+	const Rect2i region(Point2i(), rt->size);
+	if (RendererSceneRenderRD::get_singleton()->_render_buffers_can_be_storage()) {
+		copy_effects->set_color(buffer->texture, Color(0, 0, 0, 0), region, !rt->use_hdr);
+	} else {
+		copy_effects->set_color_raster(buffer->texture, Color(0, 0, 0, 0), region);
+	}
+}
+
+void TextureStorage::render_target_copy_to_canvas_group_buffer(RID p_render_target, int p_level, const Rect2i &p_region) {
+	if (p_level == 0) {
+		render_target_copy_to_back_buffer(p_render_target, p_region, false);
+		return;
+	}
+	RenderTarget *rt = render_target_owner.get_or_null(p_render_target);
+	ERR_FAIL_NULL(rt);
+	CopyEffects *copy_effects = CopyEffects::get_singleton();
+	ERR_FAIL_NULL(copy_effects);
+
+	const Rect2i region = Rect2i(Size2i(), rt->size).intersection(p_region);
+	if (region.size == Size2i()) {
+		return;
+	}
+	if (p_level == 1 && !rt->backbuffer.is_valid()) {
+		_create_render_target_backbuffer(rt);
+	}
+	const RID source = p_level == 1 ? rt->backbuffer_mipmap0 : render_target_get_canvas_group_texture(p_render_target, p_level - 1);
+	RenderTarget::CanvasGroupBuffer *buffer = _get_render_target_canvas_group_buffer(rt, p_level);
+	ERR_FAIL_NULL(buffer);
+
+	// The same copy as from the color texture to the backbuffer, but keeping the alpha, as canvas groups are transparent.
+	if (RendererSceneRenderRD::get_singleton()->_render_buffers_can_be_storage()) {
+		copy_effects->copy_to_rect(source, buffer->texture, region, false, false, false, !rt->use_hdr, false);
+	} else {
+		Rect2 src_rect = Rect2(region);
+		src_rect.position /= Size2(rt->size);
+		src_rect.size /= Size2(rt->size);
+		copy_effects->copy_to_fb_rect(source, buffer->framebuffer, region, false, false, false, false, RID(), false, false, false, false, src_rect);
 	}
 }
 

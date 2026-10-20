@@ -4,7 +4,7 @@
 		Merges several 2D nodes into a single draw operation.
 	</brief_description>
 	<description>
-		Child [CanvasItem] nodes of a [CanvasGroup] are drawn as a single object. It allows to e.g. draw overlapping translucent 2D nodes without causing the overlapping sections to be more opaque than intended (set the [member CanvasItem.self_modulate] property on the [CanvasGroup] to achieve this effect).
+		Child [CanvasItem] nodes of a [CanvasGroup] are drawn as a single object. It allows to e.g. draw overlapping translucent 2D nodes without causing the overlapping sections to be more opaque than intended (set the [member CanvasItem.modulate] or [member CanvasItem.self_modulate] property on the [CanvasGroup] to achieve this effect). The modulation of the [CanvasGroup] and its parents is applied once, to the whole group.
 		[b]Note:[/b] The [CanvasGroup] uses a custom shader to read from the backbuffer to draw its children. Assigning a [Material] to the [CanvasGroup] overrides the built-in shader. To duplicate the behavior of the built-in shader in a custom [Shader], use the following:
 		[codeblock]
 		shader_type canvas_item;
@@ -22,7 +22,7 @@
 			COLOR *= c;
 		}
 		[/codeblock]
-		[b]Note:[/b] Since [CanvasGroup] and [member CanvasItem.clip_children] both utilize the backbuffer, children of a [CanvasGroup] who have their [member CanvasItem.clip_children] set to anything other than [constant CanvasItem.CLIP_CHILDREN_DISABLED] will not function correctly.
+		A [CanvasGroup] can contain other [CanvasGroup]s, composite [Control]s (see [member Control.composite_enabled]) and nodes that clip their children (see [member CanvasItem.clip_children]). Each level of nesting draws into an image of the size of the viewport, the outermost one is the backbuffer.
 	</description>
 	<tutorials>
 	</tutorials>
@@ -35,6 +35,7 @@
 		</member>
 		<member name="use_mipmaps" type="bool" setter="set_use_mipmaps" getter="is_using_mipmaps" default="false">
 			If [code]true[/code], calculates mipmaps for the backbuffer before drawing the [CanvasGroup] so that mipmaps can be used in a custom [ShaderMaterial] attached to the [CanvasGroup]. Generating mipmaps has a performance cost so this should not be enabled unless required.
+			[b]Note:[/b] Only the outermost canvas groups get mipmaps, a [CanvasGroup] inside another one is drawn without them.
 		</member>
 	</members>
 </class>

@@ -360,6 +360,14 @@ struct RenderTarget {
 	GLuint backbuffer_depth = 0;
 	bool depth_has_stencil = true;
 
+	// The buffers of the canvas groups inside other canvas groups, from nesting level 1, as the outermost canvas groups
+	// are drawn into the backbuffer.
+	struct CanvasGroupBuffer {
+		GLuint fbo = 0;
+		GLuint color = 0;
+	};
+	LocalVector<CanvasGroupBuffer> canvas_group_buffers;
+
 	Size2i velocity_target_size;
 
 	bool hdr = false; // For Compatibility this effects both 2D and 3D rendering!
@@ -474,6 +482,7 @@ private:
 	void _update_render_target_color(RenderTarget *rt);
 	void _update_render_target_velocity(RenderTarget *rt);
 	void _create_render_target_backbuffer(RenderTarget *rt);
+	const RenderTarget::CanvasGroupBuffer *_get_render_target_canvas_group_buffer(RenderTarget *rt, int p_level);
 	void _render_target_allocate_sdf(RenderTarget *rt);
 	void _render_target_clear_sdf(RenderTarget *rt);
 	Rect2i _render_target_get_sdf_rect(const RenderTarget *rt) const;
@@ -727,6 +736,13 @@ public:
 	void render_target_copy_to_back_buffer(RID p_render_target, const Rect2i &p_region, bool p_gen_mipmaps);
 	void render_target_clear_back_buffer(RID p_render_target, const Rect2i &p_region, const Color &p_color);
 	void render_target_gen_back_buffer_mipmaps(RID p_render_target, const Rect2i &p_region);
+
+	// The buffers the children of the canvas groups are drawn into, by nesting level. Level 0 is the backbuffer.
+	GLuint render_target_get_canvas_group_fbo(RID p_render_target, int p_level);
+	GLuint render_target_get_canvas_group_texture(RID p_render_target, int p_level);
+	void render_target_clear_canvas_group_buffer(RID p_render_target, int p_level);
+	// Copies p_region from what the canvas group is drawn into, the render target or the buffer of the level before.
+	void render_target_copy_to_canvas_group_buffer(RID p_render_target, int p_level, const Rect2i &p_region);
 
 	virtual void render_target_set_vrs_mode(RID p_render_target, RSE::ViewportVRSMode p_mode) override {}
 	virtual RSE::ViewportVRSMode render_target_get_vrs_mode(RID p_render_target) const override { return RSE::VIEWPORT_VRS_DISABLED; }

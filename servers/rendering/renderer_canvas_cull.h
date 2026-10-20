@@ -195,6 +195,12 @@ public:
 	bool disable_scale;
 	bool sdf_used = false;
 	bool snapping_2d_transforms_to_pixel = false;
+	// The innermost canvas group drawn as a group around the item being culled, and its z index. Groups inside it in the
+	// same z index are drawn into it.
+	Item *current_canvas_group = nullptr;
+	int current_canvas_group_z = 0;
+	static Color _get_group_children_modulate(const Item *p_canvas_item);
+	static bool _uses_canvas_group(const Item *p_canvas_item);
 
 	bool debug_redraw = false;
 	double debug_redraw_time = 0;

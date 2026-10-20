@@ -657,7 +657,8 @@
 	<members>
 		<member name="clip_children" type="int" setter="set_clip_children_mode" getter="get_clip_children_mode" enum="CanvasItem.ClipChildrenMode" default="0">
 			The mode in which this node clips its children, acting as a mask.
-			[b]Note:[/b] Clipping nodes cannot be nested or placed within a [CanvasGroup]. If an ancestor of this node clips its children or is a [CanvasGroup], then this node's clip mode should be set to [constant CLIP_CHILDREN_DISABLED] to avoid unexpected behavior.
+			Clipping nodes can be nested and placed within a [CanvasGroup] or a composite [Control] (see [member Control.composite_enabled]), each level of nesting draws into an image of the size of the viewport.
+			[b]Note:[/b] Only the children in the same [member z_index] as this node are clipped, the others are drawn outside of it.
 		</member>
 		<member name="light_mask" type="int" setter="set_light_mask" getter="get_light_mask" default="1">
 			The rendering layers in which this [CanvasItem] responds to [Light2D] nodes.

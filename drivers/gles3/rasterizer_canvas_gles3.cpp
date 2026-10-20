@@ -405,13 +405,30 @@ void RasterizerCanvasGLES3::canvas_render_items(RID p_to_render_target, Item *p_
 	bool update_skeletons = false;
 
 	Item *ci = p_item_list;
-	Item *canvas_group_owner = nullptr;
+	// The canvas groups being drawn, outermost first. The children of each are drawn into the buffer of its nesting level,
+	// and it's drawn into the buffer of its parent from it, or into the render target from the backbuffer.
+	LocalVector<Item *> canvas_groups;
+	// Whether a canvas group was drawn into the current level from the buffer of the next one, since the last render.
+	bool nested_canvas_group_drawn = false;
 	bool skip_item = false;
 
 	state.last_item_index = 0;
 
+	// Renders the pending items into the buffer of the innermost canvas group, or into the render target.
+	auto render_pending_items = [&]() {
+		if (update_skeletons) {
+			mesh_storage->update_mesh_instances();
+			update_skeletons = false;
+		}
+		const int level = (int)canvas_groups.size() - 1;
+		const int screen_level = level < 0 ? 0 : (nested_canvas_group_drawn ? level + 1 : -1);
+		_render_items(p_to_render_target, item_count, canvas_transform_inverse, p_light_list, r_sdf_used, level, screen_level, r_render_info, level < 0 && material_screen_texture_mipmaps_cached);
+		item_count = 0;
+		nested_canvas_group_drawn = false;
+	};
+
 	while (ci) {
-		if (ci->copy_back_buffer && canvas_group_owner == nullptr) {
+		if (ci->copy_back_buffer && canvas_groups.is_empty()) {
 			backbuffer_copy = true;
 
 			if (ci->copy_back_buffer->full) {
@@ -426,7 +443,7 @@ void RasterizerCanvasGLES3::canvas_render_items(RID p_to_render_target, Item *p_
 		if (material.is_valid()) {
 			GLES3::CanvasMaterialData *md = static_cast<GLES3::CanvasMaterialData *>(material_storage->material_get_data(material, RSE::SHADER_CANVAS_ITEM));
 			if (md && md->shader_data->valid) {
-				if (md->shader_data->uses_screen_texture && canvas_group_owner == nullptr) {
+				if (md->shader_data->uses_screen_texture && canvas_groups.is_empty()) {
 					if (!material_screen_texture_cached) {
 						backbuffer_copy = true;
 						back_buffer_rect = Rect2();
@@ -462,53 +479,56 @@ void RasterizerCanvasGLES3::canvas_render_items(RID p_to_render_target, Item *p_
 		}
 
 		if (ci->canvas_group_owner != nullptr) {
-			if (canvas_group_owner == nullptr) {
-				if (update_skeletons) {
-					mesh_storage->update_mesh_instances();
-					update_skeletons = false;
-				}
-				// Canvas group begins here, render until before this item
-				_render_items(p_to_render_target, item_count, canvas_transform_inverse, p_light_list, r_sdf_used, false, r_render_info, material_screen_texture_mipmaps_cached);
-				item_count = 0;
-
-				if (ci->canvas_group_owner->canvas_group->mode != RSE::CANVAS_GROUP_MODE_TRANSPARENT) {
-					Rect2i group_rect = ci->canvas_group_owner->global_rect_cache;
-					texture_storage->render_target_copy_to_back_buffer(p_to_render_target, group_rect, false);
-					if (ci->canvas_group_owner->canvas_group->mode == RSE::CANVAS_GROUP_MODE_CLIP_AND_DRAW) {
-						ci->canvas_group_owner->use_canvas_group = false;
-						items[item_count++] = ci->canvas_group_owner;
-					}
-				} else if (!backbuffer_cleared) {
-					texture_storage->render_target_clear_back_buffer(p_to_render_target, Rect2i(), Color(0, 0, 0, 0));
-					backbuffer_cleared = true;
-				}
-
-				backbuffer_copy = false;
-				canvas_group_owner = ci->canvas_group_owner; //continue until owner found
+			// The canvas groups that begin here: the marked one and the ones around it up to the group being drawn.
+			LocalVector<Item *> begun_groups;
+			Item *current_group = canvas_groups.is_empty() ? nullptr : canvas_groups[canvas_groups.size() - 1];
+			for (Item *group = ci->canvas_group_owner; group != nullptr && group != current_group; group = group->canvas_group_parent) {
+				begun_groups.push_back(group);
 			}
 
+			for (int i = begun_groups.size() - 1; i >= 0; i--) {
+				Item *group = begun_groups[i];
+				// Canvas group begins here, render until before this item
+				render_pending_items();
+				canvas_groups.push_back(group);
+				const int level = canvas_groups.size() - 1;
+
+				if (group->canvas_group->mode != RSE::CANVAS_GROUP_MODE_TRANSPARENT) {
+					texture_storage->render_target_copy_to_canvas_group_buffer(p_to_render_target, level, group->global_rect_cache);
+					if (group->canvas_group->mode == RSE::CANVAS_GROUP_MODE_CLIP_AND_DRAW) {
+						group->use_canvas_group = false;
+						items[item_count++] = group;
+					}
+				} else if (level > 0 || !backbuffer_cleared) {
+					texture_storage->render_target_clear_canvas_group_buffer(p_to_render_target, level);
+					backbuffer_cleared = backbuffer_cleared || level == 0;
+				}
+			}
+
+			backbuffer_copy = false;
 			ci->canvas_group_owner = nullptr; //must be cleared
 		}
 
-		if (canvas_group_owner == nullptr && ci->canvas_group != nullptr && ci->canvas_group->mode != RSE::CANVAS_GROUP_MODE_CLIP_AND_DRAW) {
-			skip_item = true;
+		const bool is_current_group = !canvas_groups.is_empty() && ci == canvas_groups[canvas_groups.size() - 1];
+		if (!is_current_group && ci->canvas_group != nullptr && ci->canvas_group->mode != RSE::CANVAS_GROUP_MODE_CLIP_AND_DRAW) {
+			skip_item = true; // A canvas group with nothing to draw.
 		}
 
-		if (ci == canvas_group_owner) {
-			if (update_skeletons) {
-				mesh_storage->update_mesh_instances();
-				update_skeletons = false;
-			}
-			_render_items(p_to_render_target, item_count, canvas_transform_inverse, p_light_list, r_sdf_used, true, r_render_info, material_screen_texture_mipmaps_cached);
-			item_count = 0;
+		if (is_current_group) {
+			render_pending_items();
+			const int level = canvas_groups.size() - 1;
 
-			if (ci->canvas_group->blur_mipmaps) {
+			if (ci->canvas_group->blur_mipmaps && level == 0) {
 				texture_storage->render_target_gen_back_buffer_mipmaps(p_to_render_target, ci->global_rect_cache);
 			}
 
-			canvas_group_owner = nullptr;
-			// Backbuffer is dirty now and needs to be re-cleared if another CanvasGroup needs it.
-			backbuffer_cleared = false;
+			canvas_groups.remove_at(level);
+			if (level == 0) {
+				// Backbuffer is dirty now and needs to be re-cleared if another CanvasGroup needs it.
+				backbuffer_cleared = false;
+			} else {
+				nested_canvas_group_drawn = true;
+			}
 
 			// Tell the renderer to paint this as a canvas group
 			ci->use_canvas_group = true;
@@ -517,14 +537,8 @@ void RasterizerCanvasGLES3::canvas_render_items(RID p_to_render_target, Item *p_
 		}
 
 		if (backbuffer_copy) {
-			if (update_skeletons) {
-				mesh_storage->update_mesh_instances();
-				update_skeletons = false;
-			}
 			//render anything pending, including clearing if no items
-
-			_render_items(p_to_render_target, item_count, canvas_transform_inverse, p_light_list, r_sdf_used, false, r_render_info, material_screen_texture_mipmaps_cached);
-			item_count = 0;
+			render_pending_items();
 
 			texture_storage->render_target_copy_to_back_buffer(p_to_render_target, back_buffer_rect, backbuffer_gen_mipmaps);
 
@@ -549,13 +563,7 @@ void RasterizerCanvasGLES3::canvas_render_items(RID p_to_render_target, Item *p_
 		}
 
 		if (!ci->next || item_count == MAX_RENDER_ITEMS - 1) {
-			if (update_skeletons) {
-				mesh_storage->update_mesh_instances();
-				update_skeletons = false;
-			}
-			_render_items(p_to_render_target, item_count, canvas_transform_inverse, p_light_list, r_sdf_used, canvas_group_owner != nullptr, r_render_info, material_screen_texture_mipmaps_cached);
-			//then reset
-			item_count = 0;
+			render_pending_items();
 		}
 
 		ci = ci->next;
@@ -573,10 +581,10 @@ void RasterizerCanvasGLES3::canvas_render_items(RID p_to_render_target, Item *p_
 	state.current_instance_buffer_index = 0;
 }
 
-void RasterizerCanvasGLES3::_render_items(RID p_to_render_target, int p_item_count, const Transform2D &p_canvas_transform_inverse, Light *p_lights, bool &r_sdf_used, bool p_to_backbuffer, RenderingServerTypes::RenderInfo *r_render_info, bool p_backbuffer_has_mipmaps) {
+void RasterizerCanvasGLES3::_render_items(RID p_to_render_target, int p_item_count, const Transform2D &p_canvas_transform_inverse, Light *p_lights, bool &r_sdf_used, int p_canvas_group_level, int p_screen_level, RenderingServerTypes::RenderInfo *r_render_info, bool p_backbuffer_has_mipmaps) {
 	GLES3::MaterialStorage *material_storage = GLES3::MaterialStorage::get_singleton();
 
-	canvas_begin(p_to_render_target, p_to_backbuffer, p_backbuffer_has_mipmaps);
+	canvas_begin(p_to_render_target, p_canvas_group_level, p_screen_level, p_backbuffer_has_mipmaps);
 
 	if (p_item_count <= 0) {
 		// Nothing to draw, just call canvas_begin() to clear the render target and return.
@@ -2199,17 +2207,23 @@ bool RasterizerCanvasGLES3::free(RID p_rid) {
 void RasterizerCanvasGLES3::update() {
 }
 
-void RasterizerCanvasGLES3::canvas_begin(RID p_to_render_target, bool p_to_backbuffer, bool p_backbuffer_has_mipmaps) {
+void RasterizerCanvasGLES3::canvas_begin(RID p_to_render_target, int p_canvas_group_level, int p_screen_level, bool p_backbuffer_has_mipmaps) {
 	GLES3::TextureStorage *texture_storage = GLES3::TextureStorage::get_singleton();
 	GLES3::Config *config = GLES3::Config::get_singleton();
 
 	GLES3::RenderTarget *render_target = texture_storage->get_render_target(p_to_render_target);
+	const bool to_canvas_group = p_canvas_group_level >= 0;
 
-	if (p_to_backbuffer) {
-		glBindFramebuffer(GL_FRAMEBUFFER, render_target->backbuffer_fbo);
+	if (to_canvas_group) {
+		glBindFramebuffer(GL_FRAMEBUFFER, texture_storage->render_target_get_canvas_group_fbo(p_to_render_target, p_canvas_group_level));
 		glActiveTexture(GL_TEXTURE0 + config->max_texture_image_units - 4);
-		GLES3::Texture *tex = texture_storage->get_texture(texture_storage->texture_gl_get_default(GLES3::DEFAULT_GL_TEXTURE_WHITE));
-		glBindTexture(GL_TEXTURE_2D, tex->tex_id);
+		if (p_screen_level > p_canvas_group_level) {
+			// A canvas group drawn into a canvas group, from the buffer of its level.
+			glBindTexture(GL_TEXTURE_2D, texture_storage->render_target_get_canvas_group_texture(p_to_render_target, p_screen_level));
+		} else {
+			GLES3::Texture *tex = texture_storage->get_texture(texture_storage->texture_gl_get_default(GLES3::DEFAULT_GL_TEXTURE_WHITE));
+			glBindTexture(GL_TEXTURE_2D, tex->tex_id);
+		}
 	} else {
 		glBindFramebuffer(GL_FRAMEBUFFER, render_target->fbo);
 		glActiveTexture(GL_TEXTURE0 + config->max_texture_image_units - 4);
@@ -2219,7 +2233,7 @@ void RasterizerCanvasGLES3::canvas_begin(RID p_to_render_target, bool p_to_backb
 		}
 	}
 
-	if (render_target->is_transparent || p_to_backbuffer) {
+	if (render_target->is_transparent || to_canvas_group) {
 		state.transparent_render_target = true;
 		glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 	} else {
@@ -2876,7 +2890,14 @@ uniform sampler2D screen_texture : hint_screen_texture, repeat_disable, filter_n
 
 void fragment() {
 	vec4 c = textureLod(screen_texture, SCREEN_UV, 0.0);
+
+	// What's behind can be transparent, in a canvas group or a transparent viewport.
+	if (c.a > 0.0001) {
+		c.rgb /= c.a;
+	}
+
 	COLOR.rgb = c.rgb;
+	COLOR.a *= c.a;
 }
 )");
 		default_clip_children_material = material_storage->material_allocate();

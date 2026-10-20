@@ -146,6 +146,10 @@ void CanvasItem::_redraw_callback() {
 		return;
 	}
 
+	if (drawing_canvas_item.is_valid()) {
+		canvas_item = drawing_canvas_item;
+	}
+
 	if (draw_commands_dirty) {
 		RenderingServer::get_singleton()->canvas_item_clear(get_canvas_item());
 		draw_commands_dirty = false;
@@ -177,7 +181,25 @@ void CanvasItem::_redraw_callback() {
 		drawing = false;
 		draw_commands_dirty = true;
 	}
+	canvas_item = own_canvas_item;
 	pending_update = false; // Don't change to false until finished drawing (avoid recursive update).
+}
+
+void CanvasItem::set_drawing_canvas_item(RID p_canvas_item) {
+	ERR_MAIN_THREAD_GUARD;
+	if (drawing_canvas_item == p_canvas_item) {
+		return;
+	}
+	// The drawing moves, the canvas item it was drawn into is cleared.
+	RenderingServer::get_singleton()->canvas_item_clear(drawing_canvas_item.is_valid() ? drawing_canvas_item : own_canvas_item);
+	drawing_canvas_item = p_canvas_item;
+	if (drawing_canvas_item.is_valid()) {
+		// Canvas items don't inherit these from their parent, so the drawing keeps the ones of the node.
+		RenderingServer::get_singleton()->canvas_item_set_default_texture_filter(drawing_canvas_item, texture_filter_cache);
+		RenderingServer::get_singleton()->canvas_item_set_default_texture_repeat(drawing_canvas_item, texture_repeat_cache);
+		RenderingServer::get_singleton()->canvas_item_set_light_mask(drawing_canvas_item, light_mask);
+	}
+	queue_redraw();
 }
 
 Transform2D CanvasItem::get_global_transform_with_canvas() const {
@@ -675,6 +697,9 @@ void CanvasItem::set_light_mask(int p_light_mask) {
 
 	light_mask = p_light_mask;
 	RS::get_singleton()->canvas_item_set_light_mask(canvas_item, p_light_mask);
+	if (drawing_canvas_item.is_valid()) {
+		RS::get_singleton()->canvas_item_set_light_mask(drawing_canvas_item, p_light_mask);
+	}
 }
 
 int CanvasItem::get_light_mask() const {
@@ -1757,6 +1782,9 @@ void CanvasItem::_refresh_texture_filter_cache() const {
 
 void CanvasItem::_update_self_texture_filter(RSE::CanvasItemTextureFilter p_texture_filter) {
 	RS::get_singleton()->canvas_item_set_default_texture_filter(get_canvas_item(), p_texture_filter);
+	if (drawing_canvas_item.is_valid()) {
+		RS::get_singleton()->canvas_item_set_default_texture_filter(drawing_canvas_item, p_texture_filter);
+	}
 	queue_redraw();
 }
 
@@ -1819,6 +1847,9 @@ void CanvasItem::_refresh_texture_repeat_cache() const {
 
 void CanvasItem::_update_self_texture_repeat(RSE::CanvasItemTextureRepeat p_texture_repeat) {
 	RS::get_singleton()->canvas_item_set_default_texture_repeat(get_canvas_item(), p_texture_repeat);
+	if (drawing_canvas_item.is_valid()) {
+		RS::get_singleton()->canvas_item_set_default_texture_repeat(drawing_canvas_item, p_texture_repeat);
+	}
 	queue_redraw();
 }
 
@@ -1903,6 +1934,7 @@ CanvasItem::CanvasItem() :
 	_define_ancestry(AncestralClass::CANVAS_ITEM);
 
 	canvas_item = RenderingServer::get_singleton()->canvas_item_create();
+	own_canvas_item = canvas_item;
 }
 
 CanvasItem::~CanvasItem() {

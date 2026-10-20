@@ -298,6 +298,11 @@ private:
 		bool clip_contents = false;
 		bool disable_visibility_clip = false;
 
+		bool composite_enabled = false;
+		real_t composite_margin = 0.0;
+		bool composite_include_self = false;
+		RID composite_self_canvas_item; // What the control draws, as its first child, with composite_include_self.
+
 		CursorShape default_cursor = CURSOR_ARROW;
 
 		// Focus.
@@ -427,6 +432,7 @@ private:
 
 	bool _has_point_for_clipping(const Point2 &p_point) const;
 
+	void _update_composite();
 	void _update_interactable();
 	bool _is_parent_interactable() const;
 	void _set_parent_interactable(bool p_parent_interactable);
@@ -814,6 +820,15 @@ public:
 	void set_raycast_padding(Side p_side, real_t p_value);
 	real_t get_raycast_padding(Side p_side) const;
 	Rect2 get_raycast_rect() const;
+
+	void set_composite_enabled(bool p_enabled);
+	bool is_composite_enabled() const;
+
+	void set_composite_margin(real_t p_margin);
+	real_t get_composite_margin() const;
+
+	void set_composite_include_self(bool p_include_self);
+	bool is_composite_including_self() const;
 
 	// Theming.
 

@@ -765,7 +765,7 @@ void Control::_update_canvas_item_transform() {
 		xform *= get_offset_transform();
 	}
 
-	RenderingServer::get_singleton()->canvas_item_set_transform(get_canvas_item(), xform);
+	RenderingServer::get_singleton()->canvas_item_set_transform(get_own_canvas_item(), xform);
 }
 
 Transform2D Control::get_transform() const {
@@ -3725,6 +3725,70 @@ bool Control::is_clipping_contents() {
 	return data.clip_contents;
 }
 
+void Control::set_composite_enabled(bool p_enabled) {
+	ERR_MAIN_THREAD_GUARD;
+	if (data.composite_enabled == p_enabled) {
+		return;
+	}
+	data.composite_enabled = p_enabled;
+	_update_composite();
+}
+
+bool Control::is_composite_enabled() const {
+	ERR_READ_THREAD_GUARD_V(false);
+	return data.composite_enabled;
+}
+
+void Control::set_composite_margin(real_t p_margin) {
+	ERR_MAIN_THREAD_GUARD;
+	ERR_FAIL_COND_MSG(p_margin < 0.0, "Composite margin cannot be negative.");
+	if (data.composite_margin == p_margin) {
+		return;
+	}
+	data.composite_margin = p_margin;
+	_update_composite();
+}
+
+real_t Control::get_composite_margin() const {
+	ERR_READ_THREAD_GUARD_V(0.0);
+	return data.composite_margin;
+}
+
+void Control::set_composite_include_self(bool p_include_self) {
+	ERR_MAIN_THREAD_GUARD;
+	if (data.composite_include_self == p_include_self) {
+		return;
+	}
+	data.composite_include_self = p_include_self;
+	_update_composite();
+}
+
+bool Control::is_composite_including_self() const {
+	ERR_READ_THREAD_GUARD_V(false);
+	return data.composite_include_self;
+}
+
+void Control::_update_composite() {
+	// Draws this control and its children as a single image, like CanvasGroup.
+	const RSE::CanvasGroupMode mode = data.composite_enabled ? RSE::CANVAS_GROUP_MODE_TRANSPARENT : RSE::CANVAS_GROUP_MODE_DISABLED;
+	RS::get_singleton()->canvas_item_set_canvas_group_mode(get_own_canvas_item(), mode, data.composite_margin, true, data.composite_margin, false);
+
+	// What a canvas group draws itself is a mask for its children, so with composite_include_self the control draws into a
+	// canvas item drawn before its children instead, which puts its drawing into the image.
+	const bool include_self = data.composite_enabled && data.composite_include_self;
+	if (include_self && data.composite_self_canvas_item.is_null()) {
+		data.composite_self_canvas_item = RS::get_singleton()->canvas_item_create();
+		RS::get_singleton()->canvas_item_set_parent(data.composite_self_canvas_item, get_own_canvas_item());
+		RS::get_singleton()->canvas_item_set_draw_index(data.composite_self_canvas_item, INT32_MIN);
+		set_drawing_canvas_item(data.composite_self_canvas_item);
+	} else if (!include_self && data.composite_self_canvas_item.is_valid()) {
+		set_drawing_canvas_item(RID());
+		RS::get_singleton()->free_rid(data.composite_self_canvas_item);
+		data.composite_self_canvas_item = RID();
+	}
+	queue_redraw();
+}
+
 // Theming.
 
 void Control::_theme_changed() {
@@ -4774,8 +4838,8 @@ void Control::_notification(int p_notification) {
 
 		case NOTIFICATION_DRAW: {
 			_update_canvas_item_transform();
-			RenderingServer::get_singleton()->canvas_item_set_custom_rect(get_canvas_item(), !data.disable_visibility_clip, Rect2(Point2(), get_size()));
-			RenderingServer::get_singleton()->canvas_item_set_clip(get_canvas_item(), data.clip_contents);
+			RenderingServer::get_singleton()->canvas_item_set_custom_rect(get_own_canvas_item(), !data.disable_visibility_clip, Rect2(Point2(), get_size()));
+			RenderingServer::get_singleton()->canvas_item_set_clip(get_own_canvas_item(), data.clip_contents);
 		} break;
 
 		case NOTIFICATION_FOCUS_ENTER: {
@@ -5044,6 +5108,15 @@ void Control::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_raycast_padding", "side", "padding"), &Control::set_raycast_padding);
 	ClassDB::bind_method(D_METHOD("get_raycast_padding", "side"), &Control::get_raycast_padding);
 
+	ClassDB::bind_method(D_METHOD("set_composite_enabled", "enabled"), &Control::set_composite_enabled);
+	ClassDB::bind_method(D_METHOD("is_composite_enabled"), &Control::is_composite_enabled);
+
+	ClassDB::bind_method(D_METHOD("set_composite_margin", "margin"), &Control::set_composite_margin);
+	ClassDB::bind_method(D_METHOD("get_composite_margin"), &Control::get_composite_margin);
+
+	ClassDB::bind_method(D_METHOD("set_composite_include_self", "include_self"), &Control::set_composite_include_self);
+	ClassDB::bind_method(D_METHOD("is_composite_including_self"), &Control::is_composite_including_self);
+
 	ClassDB::bind_method(D_METHOD("grab_click_focus"), &Control::grab_click_focus);
 
 	ClassDB::bind_method(D_METHOD("set_drag_forwarding", "drag_func", "can_drop_func", "drop_func"), &Control::set_drag_forwarding);
@@ -5153,6 +5226,11 @@ void Control::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "offset_transform_pivot", PROPERTY_HINT_NONE, "suffix:px"), "set_offset_transform_pivot", "get_offset_transform_pivot");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "offset_transform_pivot_ratio", PROPERTY_HINT_NONE), "set_offset_transform_pivot_ratio", "get_offset_transform_pivot_ratio");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "offset_transform_visual_only", PROPERTY_HINT_NONE), "set_offset_transform_visual_only", "is_offset_transform_visual_only");
+
+	ADD_GROUP("Composite", "composite_");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "composite_enabled"), "set_composite_enabled", "is_composite_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "composite_margin", PROPERTY_HINT_RANGE, "0,1024,1,or_greater,suffix:px"), "set_composite_margin", "get_composite_margin");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "composite_include_self"), "set_composite_include_self", "is_composite_including_self");
 
 	ADD_GROUP("Localization", "");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "localize_numeral_system"), "set_localize_numeral_system", "is_localizing_numeral_system");
@@ -5351,6 +5429,10 @@ Control::Control() {
 
 Control::~Control() {
 	memdelete(data.theme_owner);
+
+	if (data.composite_self_canvas_item.is_valid()) {
+		RS::get_singleton()->free_rid(data.composite_self_canvas_item);
+	}
 
 	if (data.offset_transform != nullptr) {
 		memdelete(data.offset_transform);
