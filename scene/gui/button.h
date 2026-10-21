@@ -31,6 +31,7 @@
 #pragma once
 
 #include "scene/gui/base_button.h"
+#include "scene/gui/bbcode_text.h"
 #include "scene/resources/text_paragraph.h"
 
 class Button : public BaseButton {
@@ -41,6 +42,9 @@ private:
 	String text;
 	String xl_text;
 	Ref<TextParagraph> text_buf;
+	bool bbcode_enabled = false;
+	Ref<BBCodeText> bbcode;
+	mutable Rect2 bbcode_rect;
 
 	String language;
 	TextDirection text_direction = TEXT_DIRECTION_AUTO;
@@ -104,10 +108,15 @@ private:
 	} theme_cache;
 
 	void _shape(Ref<TextParagraph> p_paragraph = Ref<TextParagraph>(), String p_text = "") const;
+	void _shape_bbcode(const Ref<BBCodeText> &p_bbcode, const String &p_text) const;
+	Size2 _get_text_size() const;
+	String _get_displayed_text() const;
 	void _texture_changed();
 	void _update_style_margins(const Ref<StyleBox> &p_stylebox);
 
 protected:
+	// Buttons that open a popup, like OptionButton and MenuButton, show its items as BBCode too.
+	virtual void _bbcode_enabled_changed() {}
 	virtual void _update_theme_item_cache() override;
 
 	void _set_internal_margin(Side p_side, float p_value);
@@ -124,11 +133,15 @@ protected:
 
 public:
 	virtual Size2 get_minimum_size() const override;
+	virtual String get_tooltip(const Point2 &p_pos) const override;
 
 	Size2 get_minimum_size_for_text_and_icon(const String &p_text, Ref<Texture2D> p_icon) const;
 
 	void set_text(const String &p_text);
 	String get_text() const;
+
+	void set_bbcode_enabled(bool p_enabled);
+	bool is_bbcode_enabled() const;
 
 	void set_text_overrun_behavior(TextServer::OverrunBehavior p_behavior);
 	TextServer::OverrunBehavior get_text_overrun_behavior() const;

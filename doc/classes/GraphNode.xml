@@ -311,6 +311,9 @@
 		<member name="title" type="String" setter="set_title" getter="get_title" default="&quot;&quot;">
 			The text displayed in the GraphNode's title bar.
 		</member>
+		<member name="title_bbcode_enabled" type="bool" setter="set_title_bbcode_enabled" getter="is_title_bbcode_enabled" default="false">
+			If [code]true[/code], [member title] is parsed as BBCode, as in [member Label.bbcode_enabled].
+		</member>
 	</members>
 	<signals>
 		<signal name="slot_sizes_changed">

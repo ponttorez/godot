@@ -173,6 +173,8 @@ void GraphFrame::_resort() {
 void GraphFrame::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_title", "title"), &GraphFrame::set_title);
 	ClassDB::bind_method(D_METHOD("get_title"), &GraphFrame::get_title);
+	ClassDB::bind_method(D_METHOD("set_title_bbcode_enabled", "enabled"), &GraphFrame::set_title_bbcode_enabled);
+	ClassDB::bind_method(D_METHOD("is_title_bbcode_enabled"), &GraphFrame::is_title_bbcode_enabled);
 
 	ClassDB::bind_method(D_METHOD("get_titlebar_hbox"), &GraphFrame::get_titlebar_hbox);
 
@@ -192,6 +194,7 @@ void GraphFrame::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_tint_color"), &GraphFrame::get_tint_color);
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "title"), "set_title", "get_title");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "title_bbcode_enabled"), "set_title_bbcode_enabled", "is_title_bbcode_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "autoshrink_enabled"), "set_autoshrink_enabled", "is_autoshrink_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "autoshrink_margin", PROPERTY_HINT_RANGE, "0,128,1"), "set_autoshrink_margin", "get_autoshrink_margin");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "drag_margin", PROPERTY_HINT_RANGE, "0,128,1"), "set_drag_margin", "get_drag_margin");
@@ -232,6 +235,19 @@ void GraphFrame::set_title(const String &p_title) {
 
 String GraphFrame::get_title() const {
 	return title;
+}
+
+void GraphFrame::set_title_bbcode_enabled(bool p_enabled) {
+	ERR_FAIL_NULL(title_label);
+	title_label->set_bbcode_enabled(p_enabled);
+	// Links and hints in the title react to the mouse, other events go on to the title bar.
+	title_label->set_mouse_filter(p_enabled ? Control::MOUSE_FILTER_PASS : Control::MOUSE_FILTER_IGNORE);
+	update_minimum_size();
+}
+
+bool GraphFrame::is_title_bbcode_enabled() const {
+	ERR_FAIL_NULL_V(title_label, false);
+	return title_label->is_bbcode_enabled();
 }
 
 void GraphFrame::set_autoshrink_enabled(bool p_shrink) {

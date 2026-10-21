@@ -138,6 +138,8 @@ public:
 
 	void set_title(const String &p_title);
 	String get_title() const;
+	void set_title_bbcode_enabled(bool p_enabled);
+	bool is_title_bbcode_enabled() const;
 
 	HBoxContainer *get_titlebar_hbox();
 

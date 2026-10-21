@@ -41,6 +41,7 @@ STATIC_ASSERT_INCOMPLETE_TYPE(class, RenderingServer);
 #include "core/object/class_db.h"
 #include "core/os/os.h"
 #include "core/string/string_builder.h"
+#include "scene/gui/bbcode_text.h"
 #include "scene/gui/container.h"
 #include "scene/gui/scroll_container.h"
 #include "scene/main/canvas_layer.h"
@@ -4532,6 +4533,29 @@ Node::AutoTranslateMode Control::get_tooltip_auto_translate_mode_at(const Vector
 	return get_tooltip_auto_translate_mode();
 }
 
+void Control::set_tooltip_bbcode_enabled(bool p_enabled) {
+	ERR_MAIN_THREAD_GUARD;
+	data.tooltip_bbcode_enabled = p_enabled;
+}
+
+bool Control::is_tooltip_bbcode_enabled() const {
+	ERR_READ_THREAD_GUARD_V(false);
+	return data.tooltip_bbcode_enabled;
+}
+
+bool Control::is_tooltip_bbcode_enabled_at(const Vector2 &p_at) const {
+	ERR_READ_THREAD_GUARD_V(false);
+	bool bbcode_enabled;
+	if (GDVIRTUAL_CALL(_is_tooltip_bbcode_enabled_at, p_at, bbcode_enabled)) {
+		return bbcode_enabled;
+	}
+	return is_tooltip_bbcode_enabled();
+}
+
+String Control::_get_accessibility_tooltip(const String &p_tooltip) const {
+	return data.tooltip_bbcode_enabled ? BBCodeText::strip_tags(p_tooltip) : p_tooltip;
+}
+
 // Extra properties.
 
 void Control::set_tooltip_text(const String &p_hint) {
@@ -4647,7 +4671,7 @@ void Control::_notification(int p_notification) {
 
 			AccessibilityServer::get_singleton()->update_set_transform(ae, get_transform());
 			AccessibilityServer::get_singleton()->update_set_bounds(ae, Rect2(Vector2(), data.size_cache));
-			AccessibilityServer::get_singleton()->update_set_tooltip(ae, data.tooltip);
+			AccessibilityServer::get_singleton()->update_set_tooltip(ae, _get_accessibility_tooltip(data.tooltip));
 			AccessibilityServer::get_singleton()->update_set_flag(ae, AccessibilityServerEnums::AccessibilityFlags::FLAG_CLIPS_CHILDREN, data.clip_contents);
 			AccessibilityServer::get_singleton()->update_set_flag(ae, AccessibilityServerEnums::AccessibilityFlags::FLAG_TOUCH_PASSTHROUGH, data.mouse_filter == MOUSE_FILTER_PASS);
 			AccessibilityServer::get_singleton()->update_set_flag(ae, AccessibilityServerEnums::AccessibilityFlags::FLAG_DISABLED, !is_interactable_in_tree());
@@ -5047,6 +5071,8 @@ void Control::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_tooltip_auto_translate_mode", "mode"), &Control::set_tooltip_auto_translate_mode);
 	ClassDB::bind_method(D_METHOD("get_tooltip_auto_translate_mode"), &Control::get_tooltip_auto_translate_mode);
+	ClassDB::bind_method(D_METHOD("set_tooltip_bbcode_enabled", "enabled"), &Control::set_tooltip_bbcode_enabled);
+	ClassDB::bind_method(D_METHOD("is_tooltip_bbcode_enabled"), &Control::is_tooltip_bbcode_enabled);
 	ClassDB::bind_method(D_METHOD("set_tooltip_text", "hint"), &Control::set_tooltip_text);
 	ClassDB::bind_method(D_METHOD("get_tooltip_text"), &Control::get_tooltip_text);
 	ClassDB::bind_method(D_METHOD("get_tooltip", "at_position"), &Control::get_tooltip, DEFVAL(Point2()));
@@ -5244,6 +5270,7 @@ void Control::_bind_methods() {
 	ADD_GROUP("Tooltip", "tooltip_");
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "tooltip_text", PROPERTY_HINT_MULTILINE_TEXT), "set_tooltip_text", "get_tooltip_text");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "tooltip_auto_translate_mode", PROPERTY_HINT_ENUM, "Inherit,Always,Disabled"), "set_tooltip_auto_translate_mode", "get_tooltip_auto_translate_mode");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "tooltip_bbcode_enabled"), "set_tooltip_bbcode_enabled", "is_tooltip_bbcode_enabled");
 
 	ADD_GROUP("Focus", "focus_");
 	ADD_PROPERTYI(PropertyInfo(Variant::NODE_PATH, "focus_neighbor_left", PROPERTY_HINT_NODE_PATH_VALID_TYPES, "Control"), "set_focus_neighbor", "get_focus_neighbor", SIDE_LEFT);
@@ -5405,6 +5432,7 @@ void Control::_bind_methods() {
 	GDVIRTUAL_BIND(_get_minimum_size);
 	GDVIRTUAL_BIND(_get_tooltip, "at_position");
 	GDVIRTUAL_BIND(_get_tooltip_auto_translate_mode_at, "at_position");
+	GDVIRTUAL_BIND(_is_tooltip_bbcode_enabled_at, "at_position");
 
 	GDVIRTUAL_BIND(_get_drag_data, "at_position");
 	GDVIRTUAL_BIND(_can_drop_data, "at_position", "data");
