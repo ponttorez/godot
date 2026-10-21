@@ -494,6 +494,7 @@ void TranslationServer::set_locale(const String &p_locale) {
 	locale = new_locale;
 	ResourceLoader::reload_translation_remaps();
 	_save_selected_locale();
+	emit_signal(SNAME("locale_changed"));
 
 	if (OS::get_singleton()->get_main_loop()) {
 		OS::get_singleton()->get_main_loop()->notification(MainLoop::NOTIFICATION_TRANSLATION_CHANGED);
@@ -781,6 +782,8 @@ void TranslationServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("translate", "message", "context"), &TranslationServer::translate, DEFVAL(StringName()));
 	ClassDB::bind_method(D_METHOD("translate_plural", "message", "plural_message", "n", "context"), &TranslationServer::translate_plural, DEFVAL(StringName()));
 
+	ADD_SIGNAL(MethodInfo("locale_changed"));
+
 	ClassDB::bind_method(D_METHOD("add_translation", "translation"), &TranslationServer::add_translation);
 	ClassDB::bind_method(D_METHOD("remove_translation", "translation"), &TranslationServer::remove_translation);
 
@@ -830,6 +833,29 @@ void TranslationServer::load_project_translations(Ref<TranslationDomain> p_domai
 	if (p_domain == main_domain) {
 		_check_selected_locale();
 	}
+}
+
+String TranslationServer::get_resource_locale() const {
+	const String domain_locale = main_domain->get_locale_override();
+	return domain_locale.is_empty() ? locale : domain_locale;
+}
+
+String TranslationServer::find_resource_locale(const Vector<String> &p_locales) const {
+	for (const String &target : { get_resource_locale(), fallback }) {
+		int best_score = 0;
+		String best_locale;
+		for (const String &resource_locale : p_locales) {
+			const int score = compare_locales(target, resource_locale);
+			if (score > best_score) {
+				best_score = score;
+				best_locale = resource_locale;
+			}
+		}
+		if (best_score > 0) {
+			return best_locale;
+		}
+	}
+	return String();
 }
 
 TranslationServer::TranslationServer() {
