@@ -78,6 +78,10 @@ void ExportTemplateManager::_request_mirrors() {
 		_set_empty_mirror_list();
 		mirrors_list->set_tooltip_text(TTRC("Official export templates aren't available for double-precision builds."));
 #endif
+	} else if (!GODOT_VERSION_BUILD_OFFICIAL) {
+		// The templates of a build only fit the engine of that build, see GODOT_VERSION_TEMPLATES.
+		_set_empty_mirror_list();
+		mirrors_list->set_tooltip_text(TTRC("Official export templates aren't available for custom builds, which use templates built from their own sources."));
 	} else if (!_is_online()) {
 		mirrors_list->set_tooltip_text(TTRC("Template downloading is disabled in offline mode."));
 	} else {
@@ -85,7 +89,7 @@ void ExportTemplateManager::_request_mirrors() {
 	}
 
 	if (mirrors_list->get_tooltip_text().is_empty()) {
-		const String mirrors_metadata_url = vformat("https://godotengine.org/mirrorlist/%s.json", GODOT_VERSION_FULL_CONFIG);
+		const String mirrors_metadata_url = vformat("https://godotengine.org/mirrorlist/%s.json", GODOT_VERSION_TEMPLATES);
 		mirrors_requester->request(mirrors_metadata_url);
 	}
 }
@@ -198,7 +202,7 @@ void ExportTemplateManager::_delete_confirmed() {
 	_delete_file(item_to_delete);
 
 	const String selected_version = version_list->get_item_text(version_list->get_current());
-	if (selected_version != GODOT_VERSION_FULL_CONFIG) {
+	if (selected_version != GODOT_VERSION_TEMPLATES) {
 		// Deleting all installed templates removes the version from list.
 		_update_version_list();
 	}
@@ -385,6 +389,12 @@ void ExportTemplateManager::_tpz_file_selected(const String &p_file) {
 	if (selected_version == version) {
 		_update_template_tree();
 	}
+
+	// Templates made for the official builds of this version, or built by scripts that don't write the build name, aren't
+	// used by this build.
+	if (version == GODOT_VERSION_FULL_CONFIG && version != GODOT_VERSION_TEMPLATES) {
+		EditorNode::get_singleton()->show_warning(vformat(TTR("The export templates were installed for version %s, but this build only uses templates of version %s, built from its own sources.\nTo use templates built for this build, write %s in their version.txt file."), version, GODOT_VERSION_TEMPLATES, GODOT_VERSION_TEMPLATES));
+	}
 }
 
 void ExportTemplateManager::_initialize_template_data() {
@@ -558,7 +568,7 @@ void ExportTemplateManager::_initialize_template_data() {
 	}
 
 	// Template directory status.
-	DirAccess::make_dir_recursive_absolute(_get_template_folder_path(GODOT_VERSION_FULL_CONFIG));
+	DirAccess::make_dir_recursive_absolute(_get_template_folder_path(GODOT_VERSION_TEMPLATES));
 	_update_version_list();
 }
 
@@ -574,7 +584,7 @@ void ExportTemplateManager::_update_version_list() {
 
 	int current_version_id = -1;
 	for (const String &dir : templates_dir->get_directories()) {
-		if (dir == GODOT_VERSION_FULL_CONFIG) {
+		if (dir == GODOT_VERSION_TEMPLATES) {
 			version_list->add_item(dir);
 			version_list->set_item_custom_fg_color(-1, theme_cache.current_version_color);
 			current_version_id = version_list->get_item_count() - 1;
@@ -613,7 +623,7 @@ void ExportTemplateManager::_update_template_tree() {
 	Ref<DirAccess> template_directory = DirAccess::open(_get_template_folder_path(selected_version));
 	ERR_FAIL_COND(template_directory.is_null());
 
-	bool is_current_version = (selected_version == GODOT_VERSION_FULL_CONFIG);
+	bool is_current_version = (selected_version == GODOT_VERSION_TEMPLATES);
 	HashMap<TemplateID, LocalVector<String>> installed_template_files;
 
 	for (const KeyValue<PlatformID, PlatformInfo> &KV : platform_map) {
@@ -844,7 +854,7 @@ void ExportTemplateManager::_update_install_button() {
 
 bool ExportTemplateManager::_can_download_templates() {
 	const String selected_version = version_list->get_item_text(version_list->get_current());
-	return !mirrors_empty && _is_online() && selected_version == GODOT_VERSION_FULL_CONFIG;
+	return !mirrors_empty && _is_online() && selected_version == GODOT_VERSION_TEMPLATES;
 }
 
 void ExportTemplateManager::_update_folding_cache(TreeItem *p_item) {
@@ -1398,7 +1408,7 @@ String ExportTemplateManager::get_android_source_zip(const Ref<EditorExportPrese
 		}
 	}
 
-	const String templates_dir = EditorPaths::get_singleton()->get_export_templates_dir().path_join(GODOT_VERSION_FULL_CONFIG);
+	const String templates_dir = EditorPaths::get_singleton()->get_export_templates_dir().path_join(GODOT_VERSION_TEMPLATES);
 	return templates_dir.path_join("android_source.zip");
 }
 
@@ -1410,7 +1420,7 @@ String ExportTemplateManager::get_android_template_identifier(const Ref<EditorEx
 			return android_source_zip + String(" [") + FileAccess::get_md5(android_source_zip) + String("]");
 		}
 	}
-	return GODOT_VERSION_FULL_CONFIG;
+	return GODOT_VERSION_TEMPLATES;
 }
 
 bool ExportTemplateManager::is_android_template_installed(const Ref<EditorExportPreset> &p_preset) {
@@ -1691,7 +1701,7 @@ ExportTemplateManager::ExportTemplateManager() {
 	mirrors_requester->connect("request_completed", callable_mp(this, &ExportTemplateManager::_mirrors_request_completed));
 	add_child(mirrors_requester);
 
-	const String template_directory = _get_template_folder_path(GODOT_VERSION_FULL_CONFIG);
+	const String template_directory = _get_template_folder_path(GODOT_VERSION_TEMPLATES);
 	for (int i = 0; i < 5; i++) {
 		TemplateDownloader *downloader = memnew(TemplateDownloader(template_directory));
 		downloader->set_use_threads(true);

@@ -26,11 +26,12 @@ def version_info_builder(target, source, env):
 #define GODOT_VERSION_PATCH {patch}
 #define GODOT_VERSION_STATUS "{status}"
 #define GODOT_VERSION_BUILD "{build}"
+#define GODOT_VERSION_BUILD_OFFICIAL {build_official}
 #define GODOT_VERSION_MODULE_CONFIG "{module_config}"
 #define GODOT_VERSION_WEBSITE "{website}"
 #define GODOT_VERSION_DOCS_BRANCH "{docs_branch}"
 #define GODOT_VERSION_DOCS_URL "https://docs.godotengine.org/en/" GODOT_VERSION_DOCS_BRANCH
-""".format(**source[0].read())
+""".format(**source[0].read(), build_official=int(source[0].read()["build"] == "official"))
         )
 
 
