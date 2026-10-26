@@ -28,6 +28,12 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
+// The MSVC of the 2026-11 GitHub runners reports divisions by zero (C4723) in the branches
+// of Math::cubic_interpolate_in_time() that the constant zero times below skip.
+#if defined(_MSC_VER) && !defined(__clang__)
+#pragma warning(disable : 4723)
+#endif
+
 #include "core/math/math_funcs_binary.h"
 #include "tests/test_macros.h"
 
