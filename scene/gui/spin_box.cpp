@@ -39,6 +39,9 @@
 #include "servers/display/accessibility_server.h"
 
 void SpinBoxLineEdit::_accessibility_action_inc(const Variant &p_data) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	SpinBox *parent_sb = Object::cast_to<SpinBox>(get_parent());
 	if (parent_sb) {
 		double step = ((parent_sb->get_step() > 0) ? parent_sb->get_step() : 1);
@@ -47,6 +50,9 @@ void SpinBoxLineEdit::_accessibility_action_inc(const Variant &p_data) {
 }
 
 void SpinBoxLineEdit::_accessibility_action_dec(const Variant &p_data) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	SpinBox *parent_sb = Object::cast_to<SpinBox>(get_parent());
 	if (parent_sb) {
 		double step = ((parent_sb->get_step() > 0) ? parent_sb->get_step() : 1);
@@ -435,6 +441,15 @@ inline int SpinBox::_get_widest_button_icon_width() {
 	max = MAX(max, theme_cache.down_pressed_icon->get_width());
 	max = MAX(max, theme_cache.down_disabled_icon->get_width());
 	return max;
+}
+
+// A drag can't end with input once the spin box stops receiving it.
+void SpinBox::_interactable_changed() {
+	if (is_interactable_in_tree()) {
+		return;
+	}
+	drag.allowed = false;
+	_release_mouse_from_drag_mode();
 }
 
 void SpinBox::_notification(int p_what) {

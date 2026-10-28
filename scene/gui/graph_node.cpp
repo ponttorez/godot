@@ -328,6 +328,9 @@ void GraphNode::draw_port(int p_slot_index, Point2i p_pos, bool p_left, const Co
 }
 
 void GraphNode::_accessibility_action_slot(const Variant &p_data) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	CustomAccessibilityAction action = (CustomAccessibilityAction)p_data.operator int();
 	switch (action) {
 		case ACTION_CONNECT_INPUT: {

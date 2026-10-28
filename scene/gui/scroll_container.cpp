@@ -118,6 +118,13 @@ Size2 ScrollContainer::get_inner_combined_maximum_size() const {
 	return ms;
 }
 
+// A drag can't end with input once the container stops receiving it.
+void ScrollContainer::_interactable_changed() {
+	if (drag_touching && !is_interactable_in_tree()) {
+		_cancel_drag();
+	}
+}
+
 void ScrollContainer::_cancel_drag() {
 	set_process_internal(false);
 	drag_touching_deaccel = false;
@@ -443,12 +450,18 @@ void ScrollContainer::_reposition_children() {
 }
 
 void ScrollContainer::_accessibility_action_scroll_set(const Variant &p_data) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	const Point2 &pos = p_data;
 	h_scroll->set_value(pos.x);
 	v_scroll->set_value(pos.y);
 }
 
 void ScrollContainer::_accessibility_action_scroll_up(const Variant &p_data) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	if ((AccessibilityServerEnums::AccessibilityScrollUnit)p_data == AccessibilityServerEnums::SCROLL_UNIT_ITEM) {
 		v_scroll->set_value(v_scroll->get_value() - v_scroll->get_page() / ScrollBar::PAGE_DIVISOR);
 	} else {
@@ -457,6 +470,9 @@ void ScrollContainer::_accessibility_action_scroll_up(const Variant &p_data) {
 }
 
 void ScrollContainer::_accessibility_action_scroll_down(const Variant &p_data) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	if ((AccessibilityServerEnums::AccessibilityScrollUnit)p_data == AccessibilityServerEnums::SCROLL_UNIT_ITEM) {
 		v_scroll->set_value(v_scroll->get_value() + v_scroll->get_page() / ScrollBar::PAGE_DIVISOR);
 	} else {
@@ -465,6 +481,9 @@ void ScrollContainer::_accessibility_action_scroll_down(const Variant &p_data) {
 }
 
 void ScrollContainer::_accessibility_action_scroll_left(const Variant &p_data) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	if ((AccessibilityServerEnums::AccessibilityScrollUnit)p_data == AccessibilityServerEnums::SCROLL_UNIT_ITEM) {
 		h_scroll->set_value(h_scroll->get_value() - h_scroll->get_page() / ScrollBar::PAGE_DIVISOR);
 	} else {
@@ -473,6 +492,9 @@ void ScrollContainer::_accessibility_action_scroll_left(const Variant &p_data) {
 }
 
 void ScrollContainer::_accessibility_action_scroll_right(const Variant &p_data) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	if ((AccessibilityServerEnums::AccessibilityScrollUnit)p_data == AccessibilityServerEnums::SCROLL_UNIT_ITEM) {
 		h_scroll->set_value(h_scroll->get_value() + h_scroll->get_page() / ScrollBar::PAGE_DIVISOR);
 	} else {

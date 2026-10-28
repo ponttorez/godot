@@ -405,6 +405,9 @@ void TabBar::_accessibility_action_scroll_into_view(const Variant &p_data, int p
 }
 
 void TabBar::_accessibility_action_focus(const Variant &p_data, int p_index) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	set_current_tab(p_index);
 }
 

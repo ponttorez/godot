@@ -4762,6 +4762,9 @@ PackedStringArray Tree::get_accessibility_configuration_warnings() const {
 }
 
 void Tree::_accessibility_action_scroll_down(const Variant &p_data) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	if ((AccessibilityServerEnums::AccessibilityScrollUnit)p_data == AccessibilityServerEnums::SCROLL_UNIT_ITEM) {
 		v_scroll->set_value(v_scroll->get_value() + v_scroll->get_page() / 4);
 	} else {
@@ -4770,6 +4773,9 @@ void Tree::_accessibility_action_scroll_down(const Variant &p_data) {
 }
 
 void Tree::_accessibility_action_scroll_left(const Variant &p_data) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	if ((AccessibilityServerEnums::AccessibilityScrollUnit)p_data == AccessibilityServerEnums::SCROLL_UNIT_ITEM) {
 		h_scroll->set_value(h_scroll->get_value() - h_scroll->get_page() / 4);
 	} else {
@@ -4778,6 +4784,9 @@ void Tree::_accessibility_action_scroll_left(const Variant &p_data) {
 }
 
 void Tree::_accessibility_action_scroll_right(const Variant &p_data) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	if ((AccessibilityServerEnums::AccessibilityScrollUnit)p_data == AccessibilityServerEnums::SCROLL_UNIT_ITEM) {
 		h_scroll->set_value(h_scroll->get_value() + h_scroll->get_page() / 4);
 	} else {
@@ -4786,6 +4795,9 @@ void Tree::_accessibility_action_scroll_right(const Variant &p_data) {
 }
 
 void Tree::_accessibility_action_scroll_up(const Variant &p_data) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	if ((AccessibilityServerEnums::AccessibilityScrollUnit)p_data == AccessibilityServerEnums::SCROLL_UNIT_ITEM) {
 		v_scroll->set_value(v_scroll->get_value() - v_scroll->get_page() / 4);
 	} else {
@@ -4794,6 +4806,9 @@ void Tree::_accessibility_action_scroll_up(const Variant &p_data) {
 }
 
 void Tree::_accessibility_action_scroll_set(const Variant &p_data) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	const Point2 &pos = p_data;
 	h_scroll->set_value(pos.x);
 	v_scroll->set_value(pos.y);
@@ -4804,34 +4819,58 @@ void Tree::_accessibility_action_scroll_into_view(const Variant &p_data, TreeIte
 }
 
 void Tree::_accessibility_action_focus(const Variant &p_data, TreeItem *p_item, int p_col) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	p_item->select(p_col);
 }
 
 void Tree::_accessibility_action_blur(const Variant &p_data, TreeItem *p_item, int p_col) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	p_item->deselect(p_col);
 }
 
 void Tree::_accessibility_action_collapse(const Variant &p_data, TreeItem *p_item) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	p_item->set_collapsed(true);
 }
 
 void Tree::_accessibility_action_expand(const Variant &p_data, TreeItem *p_item) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	p_item->set_collapsed(false);
 }
 
 void Tree::_accessibility_action_set_text_value(const Variant &p_data, TreeItem *p_item, int p_col) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	p_item->set_text(p_col, p_data);
 }
 
 void Tree::_accessibility_action_set_num_value(const Variant &p_data, TreeItem *p_item, int p_col) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	p_item->set_range(p_col, p_data);
 }
 
 void Tree::_accessibility_action_set_bool_value(const Variant &p_data, TreeItem *p_item, int p_col) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	p_item->set_checked(p_col, !p_item->cells[p_col].checked);
 }
 
 void Tree::_accessibility_action_edit_custom(const Variant &p_data, TreeItem *p_item, int p_col) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	float popup_scale = popup_editor->is_embedded() ? 1.0 : popup_editor->get_parent_visible_window()->get_content_scale_factor();
 	Rect2 rect;
 	if (select_mode == SELECT_ROW) {
@@ -4849,14 +4888,23 @@ void Tree::_accessibility_action_edit_custom(const Variant &p_data, TreeItem *p_
 }
 
 void Tree::_accessibility_action_set_inc(const Variant &p_data, TreeItem *p_item, int p_col) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	p_item->set_range(p_col, p_item->cells[p_col].val + p_item->cells[p_col].step);
 }
 
 void Tree::_accessibility_action_set_dec(const Variant &p_data, TreeItem *p_item, int p_col) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	p_item->set_range(p_col, p_item->cells[p_col].val - p_item->cells[p_col].step);
 }
 
 void Tree::_accessibility_action_button_press(const Variant &p_data, TreeItem *p_item, int p_col, int p_btn) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	emit_signal("button_clicked", p_item, p_col, p_btn, MouseButton::LEFT);
 }
 
@@ -5022,6 +5070,15 @@ void Tree::_accessibility_update_item(Point2 &r_ofs, TreeItem *p_item, int &r_ro
 			c = c->next;
 		}
 	}
+}
+
+// A drag or edit can't end with input once the tree stops receiving it.
+void Tree::_interactable_changed() {
+	if (is_interactable_in_tree()) {
+		return;
+	}
+	drag_touching = false;
+	popup_editor->hide();
 }
 
 void Tree::_notification(int p_what) {

@@ -2462,6 +2462,9 @@ void RichTextLabel::_accessibility_update_line(RID p_id, ItemFrame *p_frame, int
 }
 
 void RichTextLabel::_accessibility_action_menu(const Variant &p_data) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	if (context_menu_enabled) {
 		_update_context_menu();
 		menu->set_position(get_screen_position());

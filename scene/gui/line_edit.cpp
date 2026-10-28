@@ -1188,6 +1188,9 @@ void LineEdit::_update_theme_item_cache() {
 }
 
 void LineEdit::_accessibility_action_set_selection(const Variant &p_data) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	Dictionary new_selection = p_data;
 	int sel_start_pos = new_selection["start_char"];
 	int sel_end_pos = new_selection["end_char"];
@@ -1195,16 +1198,25 @@ void LineEdit::_accessibility_action_set_selection(const Variant &p_data) {
 }
 
 void LineEdit::_accessibility_action_replace_selected(const Variant &p_data) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	String new_text = p_data;
 	insert_text_at_caret(new_text);
 }
 
 void LineEdit::_accessibility_action_set_value(const Variant &p_data) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	String new_text = p_data;
 	set_text(new_text);
 }
 
 void LineEdit::_accessibility_action_menu(const Variant &p_data) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	_update_context_menu();
 
 	Point2 pos = Point2(get_caret_pixel_pos().x, (get_size().y + theme_cache.font->get_height(theme_cache.font_size)) / 2);

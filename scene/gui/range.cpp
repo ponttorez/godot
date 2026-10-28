@@ -95,16 +95,25 @@ void Range::_value_changed_notify() {
 }
 
 void Range::_accessibility_action_inc(const Variant &p_data) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	double step = ((shared->step > 0) ? shared->step : 1);
 	set_value(shared->val + step);
 }
 
 void Range::_accessibility_action_dec(const Variant &p_data) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	double step = ((shared->step > 0) ? shared->step : 1);
 	set_value(shared->val - step);
 }
 
 void Range::_accessibility_action_set_value(const Variant &p_data) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	double new_val = p_data;
 	set_value(new_val);
 }

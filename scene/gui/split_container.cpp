@@ -219,6 +219,9 @@ Control::CursorShape SplitContainerDragger::get_cursor_shape(const Point2 &p_pos
 }
 
 void SplitContainerDragger::_accessibility_action_inc(const Variant &p_data) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	SplitContainer *sc = Object::cast_to<SplitContainer>(get_parent());
 
 	if (sc->collapsed || sc->valid_children.size() < 2u || !sc->dragging_enabled) {
@@ -229,6 +232,9 @@ void SplitContainerDragger::_accessibility_action_inc(const Variant &p_data) {
 }
 
 void SplitContainerDragger::_accessibility_action_dec(const Variant &p_data) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	SplitContainer *sc = Object::cast_to<SplitContainer>(get_parent());
 
 	if (sc->collapsed || sc->valid_children.size() < 2u || !sc->dragging_enabled) {
@@ -239,6 +245,9 @@ void SplitContainerDragger::_accessibility_action_dec(const Variant &p_data) {
 }
 
 void SplitContainerDragger::_accessibility_action_set_value(const Variant &p_data) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	SplitContainer *sc = Object::cast_to<SplitContainer>(get_parent());
 
 	if (sc->collapsed || sc->valid_children.size() < 2u || !sc->dragging_enabled) {
@@ -324,6 +333,13 @@ void SplitContainerDragger::stop_dragging() {
 
 String SplitContainerDragger::_get_accessibility_name() const {
 	return RTR("Drag to resize");
+}
+
+// A drag can't end with input once the dragger stops receiving it.
+void SplitContainerDragger::_interactable_changed() {
+	if (dragging && !is_interactable_in_tree()) {
+		stop_dragging();
+	}
 }
 
 void SplitContainerDragger::_notification(int p_what) {

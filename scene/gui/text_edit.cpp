@@ -652,6 +652,9 @@ String TextEdit::Text::get_enabled_word_separators() const {
 ///////////////////////////////////////////////////////////////////////////////
 
 void TextEdit::_accessibility_action_set_selection(const Variant &p_data) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	Dictionary new_selection = p_data;
 	RID sel_start = new_selection["start_element"];
 	Vector2i sel_start_line = AccessibilityServer::get_singleton()->element_get_meta(sel_start);
@@ -666,16 +669,25 @@ void TextEdit::_accessibility_action_set_selection(const Variant &p_data) {
 }
 
 void TextEdit::_accessibility_action_replace_selected(const Variant &p_data) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	String new_text = p_data;
 	insert_text_at_caret(new_text);
 }
 
 void TextEdit::_accessibility_action_set_value(const Variant &p_data) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	String new_text = p_data;
 	set_text(new_text);
 }
 
 void TextEdit::_accessibility_action_menu(const Variant &p_data) {
+	if (!is_interactable_in_tree()) {
+		return;
+	}
 	if (context_menu_enabled) {
 		_update_context_menu();
 		adjust_viewport_to_caret();

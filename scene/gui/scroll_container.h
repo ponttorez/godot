@@ -120,6 +120,8 @@ private:
 	Size2 _get_minimum_size(bool p_use_desired_sizes) const;
 
 protected:
+	virtual void _interactable_changed() override;
+
 	Size2 get_minimum_size() const override;
 	Size2 get_desired_size() const override;
 	Size2 get_inner_combined_maximum_size() const override;
