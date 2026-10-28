@@ -1721,6 +1721,8 @@ void Viewport::_gui_show_tooltip_at(const Point2i &p_pos) {
 		gui.tooltip_label->set_theme_type_variation(SNAME("TooltipLabel"));
 		const Vector2 tooltip_at = tooltip_owner->get_global_transform_with_canvas().affine_inverse().xform(gui.last_mouse_pos);
 		gui.tooltip_label->set_bbcode_enabled(tooltip_owner->is_tooltip_bbcode_enabled_at(tooltip_at));
+		gui.tooltip_text_arguments = tooltip_owner->get_tooltip_text_arguments_at(tooltip_at);
+		gui.tooltip_label->set_text_arguments(gui.tooltip_text_arguments);
 		gui.tooltip_label->set_text(gui.tooltip_text);
 		gui.tooltip_label->set_auto_translate_mode(tooltip_owner->get_tooltip_auto_translate_mode_at(tooltip_at));
 		base_tooltip = gui.tooltip_label;
@@ -2187,10 +2189,13 @@ void Viewport::_gui_input_event(Ref<InputEvent> p_event) {
 
 				if (gui.tooltip_popup) {
 					if (gui.tooltip_control) {
-						String tooltip = _gui_get_tooltip(over, gui.tooltip_control->get_global_transform_with_canvas().affine_inverse().xform(mpos));
+						Control *tooltip_owner = nullptr;
+						String tooltip = _gui_get_tooltip(over, gui.tooltip_control->get_global_transform_with_canvas().affine_inverse().xform(mpos), &tooltip_owner);
 						tooltip = tooltip.strip_edges();
+						// Items with the same tooltip text can format it with other arguments.
+						const bool same_arguments = !gui.tooltip_label || !tooltip_owner || tooltip_owner->get_tooltip_text_arguments_at(tooltip_owner->get_global_transform_with_canvas().affine_inverse().xform(mpos)).recursive_equal(gui.tooltip_text_arguments, 0);
 
-						if (tooltip != gui.tooltip_text) {
+						if (tooltip != gui.tooltip_text || !same_arguments) {
 							_gui_cancel_tooltip();
 						} else {
 							is_tooltip_shown = true;

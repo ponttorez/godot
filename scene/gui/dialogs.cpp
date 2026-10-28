@@ -182,6 +182,26 @@ void AcceptDialog::set_text(String p_text) {
 	}
 }
 
+void AcceptDialog::set_text_arguments(const Dictionary &p_arguments) {
+	message_label->set_text_arguments(p_arguments);
+	child_controls_changed();
+	if (is_visible()) {
+		_update_child_rects();
+	}
+}
+
+Dictionary AcceptDialog::get_text_arguments() const {
+	return message_label->get_text_arguments();
+}
+
+void AcceptDialog::set_text_argument(const String &p_name, const Variant &p_value) {
+	message_label->set_text_argument(p_name, p_value);
+	child_controls_changed();
+	if (is_visible()) {
+		_update_child_rects();
+	}
+}
+
 void AcceptDialog::set_hide_on_ok(bool p_hide) {
 	hide_on_ok = p_hide;
 }
@@ -437,6 +457,9 @@ void AcceptDialog::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("register_text_enter", "line_edit"), &AcceptDialog::register_text_enter);
 	ClassDB::bind_method(D_METHOD("set_text", "text"), &AcceptDialog::set_text);
 	ClassDB::bind_method(D_METHOD("get_text"), &AcceptDialog::get_text);
+	ClassDB::bind_method(D_METHOD("set_text_arguments", "arguments"), &AcceptDialog::set_text_arguments);
+	ClassDB::bind_method(D_METHOD("get_text_arguments"), &AcceptDialog::get_text_arguments);
+	ClassDB::bind_method(D_METHOD("set_text_argument", "name", "value"), &AcceptDialog::set_text_argument);
 	ClassDB::bind_method(D_METHOD("set_autowrap", "autowrap"), &AcceptDialog::set_autowrap);
 	ClassDB::bind_method(D_METHOD("set_bbcode_enabled", "enabled"), &AcceptDialog::set_bbcode_enabled);
 	ClassDB::bind_method(D_METHOD("is_bbcode_enabled"), &AcceptDialog::is_bbcode_enabled);
@@ -452,6 +475,7 @@ void AcceptDialog::_bind_methods() {
 
 	ADD_GROUP("Dialog", "dialog_");
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "dialog_text", PROPERTY_HINT_MULTILINE_TEXT), "set_text", "get_text");
+	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "dialog_text_arguments", PROPERTY_HINT_DICTIONARY_TYPE, "String;"), "set_text_arguments", "get_text_arguments");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "dialog_hide_on_ok"), "set_hide_on_ok", "get_hide_on_ok");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "dialog_close_on_escape"), "set_close_on_escape", "get_close_on_escape");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "dialog_autowrap"), "set_autowrap", "has_autowrap");

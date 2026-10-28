@@ -1214,6 +1214,23 @@ String GraphNode::get_title() const {
 	return title;
 }
 
+void GraphNode::set_title_text_arguments(const Dictionary &p_arguments) {
+	ERR_FAIL_NULL(title_label);
+	title_label->set_text_arguments(p_arguments);
+	update_minimum_size();
+}
+
+Dictionary GraphNode::get_title_text_arguments() const {
+	ERR_FAIL_NULL_V(title_label, Dictionary());
+	return title_label->get_text_arguments();
+}
+
+void GraphNode::set_title_text_argument(const String &p_name, const Variant &p_value) {
+	ERR_FAIL_NULL(title_label);
+	title_label->set_text_argument(p_name, p_value);
+	update_minimum_size();
+}
+
 void GraphNode::set_title_bbcode_enabled(bool p_enabled) {
 	ERR_FAIL_NULL(title_label);
 	title_label->set_bbcode_enabled(p_enabled);
@@ -1280,6 +1297,9 @@ Control::FocusMode GraphNode::get_slots_focus_mode() const {
 void GraphNode::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_title", "title"), &GraphNode::set_title);
 	ClassDB::bind_method(D_METHOD("get_title"), &GraphNode::get_title);
+	ClassDB::bind_method(D_METHOD("set_title_text_arguments", "arguments"), &GraphNode::set_title_text_arguments);
+	ClassDB::bind_method(D_METHOD("get_title_text_arguments"), &GraphNode::get_title_text_arguments);
+	ClassDB::bind_method(D_METHOD("set_title_text_argument", "name", "value"), &GraphNode::set_title_text_argument);
 	ClassDB::bind_method(D_METHOD("set_title_bbcode_enabled", "enabled"), &GraphNode::set_title_bbcode_enabled);
 	ClassDB::bind_method(D_METHOD("is_title_bbcode_enabled"), &GraphNode::is_title_bbcode_enabled);
 
@@ -1343,6 +1363,7 @@ void GraphNode::_bind_methods() {
 	GDVIRTUAL_BIND(_draw_port, "slot_index", "position", "left", "color")
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "title"), "set_title", "get_title");
+	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "title_text_arguments", PROPERTY_HINT_DICTIONARY_TYPE, "String;"), "set_title_text_arguments", "get_title_text_arguments");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "title_bbcode_enabled"), "set_title_bbcode_enabled", "is_title_bbcode_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "ignore_invalid_connection_type"), "set_ignore_invalid_connection_type", "is_ignoring_valid_connection_type");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "slots_focus_mode", PROPERTY_HINT_ENUM, "Click:1,All:2,Accessibility:3"), "set_slots_focus_mode", "get_slots_focus_mode");

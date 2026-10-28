@@ -369,6 +369,11 @@ String TreeItem::atr(int p_column, const String &p_text) const {
 	ERR_FAIL_V_MSG(tree->atr(p_text), "Unexpected auto translate mode: " + itos(cells[p_column].auto_translate_mode));
 }
 
+String TreeItem::get_xl_text(int p_column) const {
+	ERR_FAIL_INDEX_V(p_column, cells.size(), String());
+	return tree->format_text_arguments(atr(p_column, cells[p_column].text), cells[p_column].text_arguments, cells[p_column].text, tree->bbcode_enabled);
+}
+
 void TreeItem::_propagate_check_through_children(int p_column, bool p_checked, bool p_emit_signal) {
 	TreeItem *current = get_first_child();
 	while (current) {
@@ -445,7 +450,7 @@ void TreeItem::set_text(int p_column, String p_text) {
 	} else {
 		// Don't auto translate if it's in string mode and editable, as the text can be changed to anything by the user.
 		if (tree && (!cells[p_column].editable || cells[p_column].mode != TreeItem::CELL_MODE_STRING)) {
-			cells.write[p_column].xl_text = atr(p_column, p_text);
+			cells.write[p_column].xl_text = get_xl_text(p_column);
 		} else {
 			cells.write[p_column].xl_text = p_text;
 		}
@@ -462,6 +467,23 @@ void TreeItem::set_text(int p_column, String p_text) {
 String TreeItem::get_text(int p_column) const {
 	ERR_FAIL_INDEX_V(p_column, cells.size(), "");
 	return cells[p_column].text;
+}
+
+void TreeItem::set_text_arguments(int p_column, const Dictionary &p_arguments) {
+	ERR_FAIL_INDEX(p_column, cells.size());
+	cells.write[p_column].text_arguments = p_arguments;
+	cells.write[p_column].dirty = true;
+	// Like in set_text(), the texts users can edit aren't translated.
+	if (tree && cells[p_column].mode != TreeItem::CELL_MODE_RANGE && (!cells[p_column].editable || cells[p_column].mode != TreeItem::CELL_MODE_STRING)) {
+		cells.write[p_column].xl_text = get_xl_text(p_column);
+	}
+	cells.write[p_column].cached_minimum_size_dirty = true;
+	_changed_notify(p_column);
+}
+
+Dictionary TreeItem::get_text_arguments(int p_column) const {
+	ERR_FAIL_INDEX_V(p_column, cells.size(), Dictionary());
+	return cells[p_column].text_arguments;
 }
 
 void TreeItem::set_description(int p_column, String p_text) {
@@ -1921,6 +1943,8 @@ void TreeItem::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_text", "column", "text"), &TreeItem::set_text);
 	ClassDB::bind_method(D_METHOD("get_text", "column"), &TreeItem::get_text);
+	ClassDB::bind_method(D_METHOD("set_text_arguments", "column", "arguments"), &TreeItem::set_text_arguments);
+	ClassDB::bind_method(D_METHOD("get_text_arguments", "column"), &TreeItem::get_text_arguments);
 
 	ClassDB::bind_method(D_METHOD("set_description", "column", "description"), &TreeItem::set_description);
 	ClassDB::bind_method(D_METHOD("get_description", "column"), &TreeItem::get_description);
@@ -2297,7 +2321,7 @@ void Tree::update_column(int p_col) {
 		columns.write[p_col].text_buf->set_direction((TextServer::Direction)columns[p_col].text_direction);
 	}
 
-	columns.write[p_col].xl_title = atr(columns[p_col].title);
+	columns.write[p_col].xl_title = format_text_arguments(atr(columns[p_col].title), columns[p_col].title_text_arguments, columns[p_col].title, bbcode_enabled);
 	const String &lang = columns[p_col].language.is_empty() ? _get_locale() : columns[p_col].language;
 	columns.write[p_col].text_buf->add_string(columns[p_col].xl_title, theme_cache.tb_font, theme_cache.tb_font_size, lang);
 	columns.write[p_col].cached_minimum_width_dirty = true;
@@ -2353,7 +2377,7 @@ void Tree::update_item_cell(TreeItem *p_item, int p_col) const {
 	} else {
 		// Don't auto translate if it's in string mode and editable, as the text can be changed to anything by the user.
 		if (!p_item->cells[p_col].editable || p_item->cells[p_col].mode != TreeItem::CELL_MODE_STRING) {
-			p_item->cells.write[p_col].xl_text = p_item->atr(p_col, p_item->cells[p_col].text);
+			p_item->cells.write[p_col].xl_text = p_item->get_xl_text(p_col);
 		} else {
 			p_item->cells.write[p_col].xl_text = p_item->cells[p_col].text;
 		}
@@ -6457,7 +6481,6 @@ void Tree::set_column_title(int p_column, const String &p_title) {
 	}
 
 	columns.write[p_column].title = p_title;
-	columns.write[p_column].xl_title = atr(p_title);
 	update_column(p_column);
 	queue_accessibility_update();
 	queue_redraw();
@@ -6466,6 +6489,19 @@ void Tree::set_column_title(int p_column, const String &p_title) {
 String Tree::get_column_title(int p_column) const {
 	ERR_FAIL_INDEX_V(p_column, columns.size(), "");
 	return columns[p_column].title;
+}
+
+void Tree::set_column_title_text_arguments(int p_column, const Dictionary &p_arguments) {
+	ERR_FAIL_INDEX(p_column, columns.size());
+	columns.write[p_column].title_text_arguments = p_arguments;
+	update_column(p_column);
+	queue_accessibility_update();
+	queue_redraw();
+}
+
+Dictionary Tree::get_column_title_text_arguments(int p_column) const {
+	ERR_FAIL_INDEX_V(p_column, columns.size(), Dictionary());
+	return columns[p_column].title_text_arguments;
 }
 
 void Tree::set_column_title_tooltip_text(int p_column, const String &p_tooltip) {
@@ -7189,34 +7225,37 @@ int Tree::get_button_id_at_position(const Point2 &p_pos) const {
 	return -1;
 }
 
+int Tree::_get_title_column_at(const Point2 &p_pos) const {
+	// Get the x position of the cursor.
+	real_t pos_x = p_pos.x;
+	if (is_layout_rtl()) {
+		pos_x = get_size().width - pos_x;
+	}
+	pos_x -= theme_cache.panel_style->get_offset().x;
+	if (h_scroll->is_visible_in_tree()) {
+		pos_x += h_scroll->get_value();
+	}
+
+	// Walk forwards until we know which column we're in.
+	int next_edge = 0;
+	for (int i = 0; i < columns.size(); i++) {
+		next_edge += get_column_width(i);
+		if (pos_x < next_edge) {
+			return i;
+		}
+	}
+	return -1;
+}
+
 String Tree::get_tooltip(const Point2 &p_pos) const {
 	Point2 pos = p_pos - theme_cache.panel_style->get_offset();
 	pos.y -= _get_title_button_height();
 
 	// `pos.y` less than 0 indicates we're in the header.
 	if (pos.y < 0) {
-		// Get the x position of the cursor.
-		real_t pos_x = p_pos.x;
-		if (is_layout_rtl()) {
-			pos_x = get_size().width - pos_x;
-		}
-		pos_x -= theme_cache.panel_style->get_offset().x;
-		if (h_scroll->is_visible_in_tree()) {
-			pos_x += h_scroll->get_value();
-		}
-
-		// Walk forwards until we know which column we're in.
-		int next_edge = 0;
-		int i = 0;
-		for (const ColumnInfo &column : columns) {
-			next_edge += get_column_width(i++);
-
-			if (pos_x < next_edge) {
-				if (!column.title_tooltip.is_empty()) {
-					return column.title_tooltip;
-				}
-				break;
-			}
+		const int column = _get_title_column_at(p_pos);
+		if (column >= 0 && !columns[column].title_tooltip.is_empty()) {
+			return columns[column].title_tooltip;
 		}
 
 		// If the column has no tooltip, use the default.
@@ -7260,6 +7299,28 @@ Node::AutoTranslateMode Tree::get_tooltip_auto_translate_mode_at(const Point2 &p
 		return it->get_auto_translate_mode(col);
 	}
 	return Control::get_tooltip_auto_translate_mode_at(p_at);
+}
+
+Dictionary Tree::get_tooltip_text_arguments_at(const Vector2 &p_at) const {
+	Point2 pos = p_at - theme_cache.panel_style->get_offset();
+	pos.y -= _get_title_button_height();
+	if (pos.y < 0) {
+		// The tooltip of a column title is formatted like the title.
+		const int column = _get_title_column_at(p_at);
+		if (column >= 0 && !columns[column].title_tooltip.is_empty()) {
+			return columns[column].title_text_arguments;
+		}
+		return Control::get_tooltip_text_arguments_at(p_at);
+	}
+
+	TreeItem *it;
+	int col, index, section;
+	_find_button_at_pos(p_at, it, col, index, section);
+	if (it && index == -1) {
+		// The tooltip of a cell is formatted like its text.
+		return it->cells[col].text_arguments;
+	}
+	return Control::get_tooltip_text_arguments_at(p_at);
 }
 
 bool Tree::is_tooltip_bbcode_enabled_at(const Vector2 &p_at) const {
@@ -7425,6 +7486,8 @@ void Tree::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_column_title", "column", "title"), &Tree::set_column_title);
 	ClassDB::bind_method(D_METHOD("get_column_title", "column"), &Tree::get_column_title);
+	ClassDB::bind_method(D_METHOD("set_column_title_text_arguments", "column", "arguments"), &Tree::set_column_title_text_arguments);
+	ClassDB::bind_method(D_METHOD("get_column_title_text_arguments", "column"), &Tree::get_column_title_text_arguments);
 
 	ClassDB::bind_method(D_METHOD("set_column_title_tooltip_text", "column", "tooltip_text"), &Tree::set_column_title_tooltip_text);
 	ClassDB::bind_method(D_METHOD("get_column_title_tooltip_text", "column"), &Tree::get_column_title_tooltip_text);

@@ -70,6 +70,7 @@ private:
 		Rect2i icon_region;
 		String text;
 		String xl_text;
+		Dictionary text_arguments;
 		Node::AutoTranslateMode auto_translate_mode = Node::AUTO_TRANSLATE_MODE_INHERIT;
 		String description;
 		bool edit_multiline = false;
@@ -271,6 +272,8 @@ public:
 	void propagate_check(int p_column, bool p_emit_signal = true);
 
 	String atr(int p_column, const String &p_text) const;
+	// The translated text of the cell, formatted with its text_arguments.
+	String get_xl_text(int p_column) const;
 
 private:
 	// Check helpers.
@@ -283,6 +286,9 @@ private:
 public:
 	void set_text(int p_column, String p_text);
 	String get_text(int p_column) const;
+
+	void set_text_arguments(int p_column, const Dictionary &p_arguments);
+	Dictionary get_text_arguments(int p_column) const;
 
 	void set_description(int p_column, String p_text);
 	String get_description(int p_column) const;
@@ -546,6 +552,7 @@ private:
 		String title_tooltip;
 		String title;
 		String xl_title;
+		Dictionary title_text_arguments;
 		HorizontalAlignment title_alignment = HORIZONTAL_ALIGNMENT_CENTER;
 		Ref<TextParagraph> text_buf;
 		Ref<BBCodeText> bbcode; // Used instead of text_buf when BBCode is enabled.
@@ -744,6 +751,8 @@ private:
 	} cache;
 
 	int _get_title_button_height() const;
+	// The column of the title at p_pos, or -1.
+	int _get_title_column_at(const Point2 &p_pos) const;
 	Size2 _get_cell_icon_size(const TreeItem::Cell &p_cell) const;
 
 	void _scroll_moved(float p_value);
@@ -872,6 +881,7 @@ public:
 
 	virtual String get_tooltip(const Point2 &p_pos) const override;
 	virtual AutoTranslateMode get_tooltip_auto_translate_mode_at(const Point2 &p_at) const override;
+	virtual Dictionary get_tooltip_text_arguments_at(const Vector2 &p_at) const override;
 	virtual bool is_tooltip_bbcode_enabled_at(const Vector2 &p_at) const override;
 
 	virtual bool can_drop_data(const Point2 &p_point, const Variant &p_data) const override;
@@ -915,6 +925,9 @@ public:
 
 	void set_column_title(int p_column, const String &p_title);
 	String get_column_title(int p_column) const;
+
+	void set_column_title_text_arguments(int p_column, const Dictionary &p_arguments);
+	Dictionary get_column_title_text_arguments(int p_column) const;
 
 	void set_column_title_tooltip_text(int p_column, const String &p_tooltip);
 	String get_column_title_tooltip_text(int p_column) const;

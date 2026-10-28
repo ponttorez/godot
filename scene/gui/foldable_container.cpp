@@ -155,6 +155,24 @@ String FoldableContainer::get_title() const {
 	return title;
 }
 
+void FoldableContainer::set_title_text_arguments(const Dictionary &p_arguments) {
+	title_text_arguments = p_arguments;
+	_shape();
+	update_minimum_size();
+	queue_redraw();
+}
+
+Dictionary FoldableContainer::get_title_text_arguments() const {
+	return title_text_arguments;
+}
+
+void FoldableContainer::set_title_text_argument(const String &p_name, const Variant &p_value) {
+	title_text_arguments[p_name] = p_value;
+	_shape();
+	update_minimum_size();
+	queue_redraw();
+}
+
 void FoldableContainer::set_title_alignment(HorizontalAlignment p_alignment) {
 	ERR_FAIL_INDEX((int)p_alignment, 3);
 	title_alignment = p_alignment;
@@ -538,7 +556,7 @@ void FoldableContainer::_shape() {
 		text_buf->set_horizontal_alignment(_get_actual_alignment());
 		bbcode->update_theme_fonts(this, font, font_size);
 		bbcode->set_language(language.is_empty() ? _get_locale() : language);
-		bbcode->set_text(atr(title));
+		bbcode->set_text(format_text_arguments(atr(title), title_text_arguments, title, true));
 		bbcode->set_width(-1);
 		bbcode->set_horizontal_alignment(_get_actual_alignment());
 		bbcode->set_text_overrun_behavior(overrun_behavior);
@@ -554,7 +572,7 @@ void FoldableContainer::_shape() {
 	text_buf->set_horizontal_alignment(_get_actual_alignment());
 	text_buf->set_text_overrun_behavior(overrun_behavior);
 	const String &lang = language.is_empty() ? _get_locale() : language;
-	text_buf->add_string(atr(title), font, font_size, lang);
+	text_buf->add_string(format_text_arguments(atr(title), title_text_arguments, title), font, font_size, lang);
 }
 
 void FoldableContainer::_process_text_effects(double p_delta) {
@@ -625,6 +643,9 @@ void FoldableContainer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_foldable_group"), &FoldableContainer::get_foldable_group);
 	ClassDB::bind_method(D_METHOD("set_title", "text"), &FoldableContainer::set_title);
 	ClassDB::bind_method(D_METHOD("get_title"), &FoldableContainer::get_title);
+	ClassDB::bind_method(D_METHOD("set_title_text_arguments", "arguments"), &FoldableContainer::set_title_text_arguments);
+	ClassDB::bind_method(D_METHOD("get_title_text_arguments"), &FoldableContainer::get_title_text_arguments);
+	ClassDB::bind_method(D_METHOD("set_title_text_argument", "name", "value"), &FoldableContainer::set_title_text_argument);
 	ClassDB::bind_method(D_METHOD("set_title_bbcode_enabled", "enabled"), &FoldableContainer::set_title_bbcode_enabled);
 	ClassDB::bind_method(D_METHOD("is_title_bbcode_enabled"), &FoldableContainer::is_title_bbcode_enabled);
 	ClassDB::bind_method(D_METHOD("set_title_alignment", "alignment"), &FoldableContainer::set_title_alignment);
@@ -644,6 +665,7 @@ void FoldableContainer::_bind_methods() {
 
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "folded"), "set_folded", "is_folded");
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "title"), "set_title", "get_title");
+	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "title_text_arguments", PROPERTY_HINT_DICTIONARY_TYPE, "String;"), "set_title_text_arguments", "get_title_text_arguments");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "title_bbcode_enabled"), "set_title_bbcode_enabled", "is_title_bbcode_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "title_alignment", PROPERTY_HINT_ENUM, "Left,Center,Right"), "set_title_alignment", "get_title_alignment");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "title_position", PROPERTY_HINT_ENUM, "Top,Bottom"), "set_title_position", "get_title_position");

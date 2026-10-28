@@ -120,6 +120,7 @@ private:
 	bool initialized = false;
 
 	String title;
+	Dictionary title_text_arguments;
 	String displayed_title; // Without the BBCode tags, for the window manager and accessibility.
 	bool title_bbcode_enabled = false;
 	Ref<BBCodeText> title_bbcode; // The title drawn by the embedder.
@@ -312,6 +313,9 @@ public:
 
 	void set_title(const String &p_title);
 	String get_title() const;
+	void set_title_text_arguments(const Dictionary &p_arguments);
+	Dictionary get_title_text_arguments() const;
+	void set_title_text_argument(const String &p_name, const Variant &p_value);
 
 	void set_title_bbcode_enabled(bool p_enabled);
 	bool is_title_bbcode_enabled() const;

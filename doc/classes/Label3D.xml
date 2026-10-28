@@ -31,6 +31,14 @@
 				If [code]true[/code], the specified [param flag] will be enabled.
 			</description>
 		</method>
+		<method name="set_text_argument">
+			<return type="void" />
+			<param index="0" name="name" type="String" />
+			<param index="1" name="value" type="Variant" />
+			<description>
+				Sets the [param value] of the argument [param name] in [member text_arguments] and updates the text.
+			</description>
+		</method>
 	</methods>
 	<members>
 		<member name="alpha_antialiasing_edge" type="float" setter="set_alpha_antialiasing_edge" getter="get_alpha_antialiasing_edge" default="0.0">
@@ -123,6 +131,10 @@
 		</member>
 		<member name="text" type="String" setter="set_text" getter="get_text" default="&quot;&quot;">
 			The text to display on screen.
+		</member>
+		<member name="text_arguments" type="Dictionary" setter="set_text_arguments" getter="get_text_arguments" default="{}">
+			Arguments formatted in the translated [member text] like [member Label.text_arguments].
+			[b]Note:[/b] Changing the returned dictionary doesn't update the text, use [method set_text_argument] or set the whole dictionary.
 		</member>
 		<member name="text_direction" type="int" setter="set_text_direction" getter="get_text_direction" enum="TextServer.Direction" default="0">
 			Base text writing direction.

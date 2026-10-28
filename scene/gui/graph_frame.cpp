@@ -173,6 +173,9 @@ void GraphFrame::_resort() {
 void GraphFrame::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_title", "title"), &GraphFrame::set_title);
 	ClassDB::bind_method(D_METHOD("get_title"), &GraphFrame::get_title);
+	ClassDB::bind_method(D_METHOD("set_title_text_arguments", "arguments"), &GraphFrame::set_title_text_arguments);
+	ClassDB::bind_method(D_METHOD("get_title_text_arguments"), &GraphFrame::get_title_text_arguments);
+	ClassDB::bind_method(D_METHOD("set_title_text_argument", "name", "value"), &GraphFrame::set_title_text_argument);
 	ClassDB::bind_method(D_METHOD("set_title_bbcode_enabled", "enabled"), &GraphFrame::set_title_bbcode_enabled);
 	ClassDB::bind_method(D_METHOD("is_title_bbcode_enabled"), &GraphFrame::is_title_bbcode_enabled);
 
@@ -194,6 +197,7 @@ void GraphFrame::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_tint_color"), &GraphFrame::get_tint_color);
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "title"), "set_title", "get_title");
+	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "title_text_arguments", PROPERTY_HINT_DICTIONARY_TYPE, "String;"), "set_title_text_arguments", "get_title_text_arguments");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "title_bbcode_enabled"), "set_title_bbcode_enabled", "is_title_bbcode_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "autoshrink_enabled"), "set_autoshrink_enabled", "is_autoshrink_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "autoshrink_margin", PROPERTY_HINT_RANGE, "0,128,1"), "set_autoshrink_margin", "get_autoshrink_margin");
@@ -235,6 +239,23 @@ void GraphFrame::set_title(const String &p_title) {
 
 String GraphFrame::get_title() const {
 	return title;
+}
+
+void GraphFrame::set_title_text_arguments(const Dictionary &p_arguments) {
+	ERR_FAIL_NULL(title_label);
+	title_label->set_text_arguments(p_arguments);
+	update_minimum_size();
+}
+
+Dictionary GraphFrame::get_title_text_arguments() const {
+	ERR_FAIL_NULL_V(title_label, Dictionary());
+	return title_label->get_text_arguments();
+}
+
+void GraphFrame::set_title_text_argument(const String &p_name, const Variant &p_value) {
+	ERR_FAIL_NULL(title_label);
+	title_label->set_text_argument(p_name, p_value);
+	update_minimum_size();
 }
 
 void GraphFrame::set_title_bbcode_enabled(bool p_enabled) {

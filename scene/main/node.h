@@ -840,6 +840,9 @@ public:
 		}
 		return p_n == 1 ? p_message : String(p_message_plural);
 	}
+	// Formats the text_arguments of text nodes in their translated text, with the plural rules of the locale the text is in.
+	// With p_escape_bbcode, brackets in the arguments don't make BBCode tags, as arguments can come from users, e.g. their names.
+	String format_text_arguments(const String &p_translated, const Dictionary &p_arguments, const String &p_message, bool p_escape_bbcode = false) const;
 
 	/* THREADING */
 

@@ -108,6 +108,7 @@ private:
 	VerticalAlignment vertical_alignment = VERTICAL_ALIGNMENT_CENTER;
 	String text;
 	String xl_text;
+	Dictionary text_arguments;
 	bool uppercase = false;
 
 	TextServer::AutowrapMode autowrap_mode = TextServer::AUTOWRAP_OFF;
@@ -177,6 +178,10 @@ public:
 
 	void set_text(const String &p_string);
 	String get_text() const;
+
+	void set_text_arguments(const Dictionary &p_arguments);
+	Dictionary get_text_arguments() const;
+	void set_text_argument(const String &p_name, const Variant &p_value);
 
 	void set_text_direction(TextServer::Direction p_text_direction);
 	TextServer::Direction get_text_direction() const;

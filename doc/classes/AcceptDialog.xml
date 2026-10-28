@@ -58,6 +58,14 @@
 				Removes the [param button] from the dialog. Does NOT free the [param button]. The [param button] must be a [Button] added with [method add_button] or [method add_cancel_button] method. After removal, pressing the [param button] will no longer emit this dialog's [signal custom_action] or [signal canceled] signals.
 			</description>
 		</method>
+		<method name="set_text_argument">
+			<return type="void" />
+			<param index="0" name="name" type="String" />
+			<param index="1" name="value" type="Variant" />
+			<description>
+				Sets the [param value] of the argument [param name] in [member dialog_text_arguments] and updates the text.
+			</description>
+		</method>
 	</methods>
 	<members>
 		<member name="dialog_autowrap" type="bool" setter="set_autowrap" getter="has_autowrap" default="false">
@@ -75,6 +83,10 @@
 		</member>
 		<member name="dialog_text" type="String" setter="set_text" getter="get_text" default="&quot;&quot;">
 			The text displayed by the dialog.
+		</member>
+		<member name="dialog_text_arguments" type="Dictionary" setter="set_text_arguments" getter="get_text_arguments" default="{}">
+			Arguments formatted in the translated [member dialog_text] like [member Label.text_arguments].
+			[b]Note:[/b] Changing the returned dictionary doesn't update the text, use [method set_text_argument] or set the whole dictionary.
 		</member>
 		<member name="exclusive" type="bool" setter="set_exclusive" getter="is_exclusive" overrides="Window" default="true" />
 		<member name="keep_title_visible" type="bool" setter="set_keep_title_visible" getter="get_keep_title_visible" overrides="Window" default="true" />

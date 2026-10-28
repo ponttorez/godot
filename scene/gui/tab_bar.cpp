@@ -375,6 +375,19 @@ bool TabBar::is_tooltip_bbcode_enabled_at(const Vector2 &p_at) const {
 	return Control::is_tooltip_bbcode_enabled_at(p_at);
 }
 
+String TabBar::_get_tab_xl_text(int p_tab) const {
+	return format_text_arguments(atr(tabs[p_tab].text), tabs[p_tab].text_arguments, tabs[p_tab].text, bbcode_enabled);
+}
+
+Dictionary TabBar::get_tooltip_text_arguments_at(const Vector2 &p_at) const {
+	int tab_idx = get_tab_idx_at_point(p_at);
+	if (tab_idx >= 0) {
+		// The tooltip of a tab is formatted like its title.
+		return tabs[tab_idx].text_arguments;
+	}
+	return Control::get_tooltip_text_arguments_at(p_at);
+}
+
 void TabBar::_shape(int p_tab) {
 	if (bbcode_enabled) {
 		Tab &tab = tabs.write[p_tab];
@@ -386,7 +399,7 @@ void TabBar::_shape(int p_tab) {
 			tab.bbcode->update_theme_fonts(this, theme_cache.font, theme_cache.font_size);
 		}
 		tab.bbcode->set_language(tab.language.is_empty() ? _get_locale() : tab.language);
-		tab.bbcode->set_text(atr(tab.text));
+		tab.bbcode->set_text(_get_tab_xl_text(p_tab));
 		tab.bbcode->set_width(-1);
 		tab.bbcode->set_text_overrun_behavior(TextServer::OVERRUN_TRIM_CHAR);
 		tab.bbcode->set_text_direction(tab.text_direction, is_layout_rtl());
@@ -402,7 +415,7 @@ void TabBar::_shape(int p_tab) {
 	}
 
 	const String &lang = tabs[p_tab].language.is_empty() ? _get_locale() : tabs[p_tab].language;
-	tabs.write[p_tab].text_buf->add_string(atr(tabs[p_tab].text), theme_cache.font, theme_cache.font_size, lang);
+	tabs.write[p_tab].text_buf->add_string(_get_tab_xl_text(p_tab), theme_cache.font, theme_cache.font_size, lang);
 }
 
 Size2 TabBar::_get_tab_text_size(int p_tab) const {
@@ -538,7 +551,7 @@ void TabBar::_notification(int p_what) {
 					AccessibilityServer::get_singleton()->update_add_action(item.accessibility_item_element, AccessibilityServerEnums::AccessibilityAction::ACTION_FOCUS, callable_mp(this, &TabBar::_accessibility_action_focus).bind(i));
 
 					AccessibilityServer::get_singleton()->update_set_list_item_index(item.accessibility_item_element, i);
-					AccessibilityServer::get_singleton()->update_set_name(item.accessibility_item_element, (bbcode_enabled && item.bbcode.is_valid()) ? item.bbcode->get_parsed_text() : atr(item.text));
+					AccessibilityServer::get_singleton()->update_set_name(item.accessibility_item_element, (bbcode_enabled && item.bbcode.is_valid()) ? item.bbcode->get_parsed_text() : _get_tab_xl_text(i));
 					AccessibilityServer::get_singleton()->update_set_list_item_selected(item.accessibility_item_element, i == current);
 					AccessibilityServer::get_singleton()->update_set_flag(item.accessibility_item_element, AccessibilityServerEnums::AccessibilityFlags::FLAG_DISABLED, item.disabled);
 					AccessibilityServer::get_singleton()->update_set_flag(item.accessibility_item_element, AccessibilityServerEnums::AccessibilityFlags::FLAG_HIDDEN, item.hidden);
@@ -1037,6 +1050,27 @@ void TabBar::set_tab_title(int p_tab, const String &p_title) {
 String TabBar::get_tab_title(int p_tab) const {
 	ERR_FAIL_INDEX_V(p_tab, tabs.size(), "");
 	return tabs[p_tab].text;
+}
+
+void TabBar::set_tab_text_arguments(int p_tab, const Dictionary &p_arguments) {
+	ERR_FAIL_INDEX(p_tab, tabs.size());
+	tabs.write[p_tab].text_arguments = p_arguments;
+
+	_shape(p_tab);
+	_update_cache();
+	_ensure_no_over_offset();
+	if (scroll_to_selected) {
+		ensure_tab_visible(current);
+	}
+	queue_accessibility_update();
+	queue_redraw();
+	update_desired_size();
+	update_minimum_size();
+}
+
+Dictionary TabBar::get_tab_text_arguments(int p_tab) const {
+	ERR_FAIL_INDEX_V(p_tab, tabs.size(), Dictionary());
+	return tabs[p_tab].text_arguments;
 }
 
 void TabBar::set_tab_tooltip(int p_tab, const String &p_tooltip) {
@@ -2264,6 +2298,8 @@ void TabBar::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("select_next_available"), &TabBar::select_next_available);
 	ClassDB::bind_method(D_METHOD("set_tab_title", "tab_idx", "title"), &TabBar::set_tab_title);
 	ClassDB::bind_method(D_METHOD("get_tab_title", "tab_idx"), &TabBar::get_tab_title);
+	ClassDB::bind_method(D_METHOD("set_tab_text_arguments", "tab_idx", "arguments"), &TabBar::set_tab_text_arguments);
+	ClassDB::bind_method(D_METHOD("get_tab_text_arguments", "tab_idx"), &TabBar::get_tab_text_arguments);
 	ClassDB::bind_method(D_METHOD("set_tab_tooltip", "tab_idx", "tooltip"), &TabBar::set_tab_tooltip);
 	ClassDB::bind_method(D_METHOD("get_tab_tooltip", "tab_idx"), &TabBar::get_tab_tooltip);
 	ClassDB::bind_method(D_METHOD("set_tab_text_direction", "tab_idx", "direction"), &TabBar::set_tab_text_direction);
@@ -2396,6 +2432,7 @@ void TabBar::_bind_methods() {
 	base_property_helper.set_prefix("tab_");
 	base_property_helper.set_array_length_getter(&TabBar::get_tab_count);
 	base_property_helper.register_property(PropertyInfo(Variant::STRING, "title"), defaults.text, &TabBar::set_tab_title, &TabBar::get_tab_title);
+	base_property_helper.register_property(PropertyInfo(Variant::DICTIONARY, "text_arguments", PROPERTY_HINT_DICTIONARY_TYPE, "String;"), defaults.text_arguments, &TabBar::set_tab_text_arguments, &TabBar::get_tab_text_arguments);
 	base_property_helper.register_property(PropertyInfo(Variant::STRING, "tooltip"), defaults.tooltip, &TabBar::set_tab_tooltip, &TabBar::get_tab_tooltip);
 	base_property_helper.register_property(PropertyInfo(Variant::OBJECT, "icon", PROPERTY_HINT_RESOURCE_TYPE, Texture2D::get_class_static()), defaults.icon, &TabBar::set_tab_icon, &TabBar::get_tab_icon);
 	base_property_helper.register_property(PropertyInfo(Variant::BOOL, "disabled"), defaults.disabled, &TabBar::set_tab_disabled, &TabBar::is_tab_disabled);

@@ -22,6 +22,13 @@
 				Returns [PopupMenu] associated with menu item.
 			</description>
 		</method>
+		<method name="get_menu_text_arguments" qualifiers="const">
+			<return type="Dictionary" />
+			<param index="0" name="menu" type="int" />
+			<description>
+				Returns the arguments formatted in the translated title of the menu at [param menu], see [method set_menu_text_arguments].
+			</description>
+		</method>
 		<method name="get_menu_title" qualifiers="const">
 			<return type="String" />
 			<param index="0" name="menu" type="int" />
@@ -77,6 +84,14 @@
 			<param index="1" name="hidden" type="bool" />
 			<description>
 				If [code]true[/code], menu item is hidden.
+			</description>
+		</method>
+		<method name="set_menu_text_arguments">
+			<return type="void" />
+			<param index="0" name="menu" type="int" />
+			<param index="1" name="arguments" type="Dictionary" />
+			<description>
+				Sets the arguments formatted in the translated title of the menu at [param menu] like [member Label.text_arguments]. Its tooltip is formatted with them too.
 			</description>
 		</method>
 		<method name="set_menu_title">

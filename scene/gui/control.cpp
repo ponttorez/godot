@@ -4577,6 +4577,25 @@ bool Control::is_tooltip_bbcode_enabled_at(const Vector2 &p_at) const {
 	return is_tooltip_bbcode_enabled();
 }
 
+void Control::set_tooltip_text_arguments(const Dictionary &p_arguments) {
+	ERR_MAIN_THREAD_GUARD;
+	data.tooltip_text_arguments = p_arguments;
+}
+
+Dictionary Control::get_tooltip_text_arguments() const {
+	ERR_READ_THREAD_GUARD_V(Dictionary());
+	return data.tooltip_text_arguments;
+}
+
+Dictionary Control::get_tooltip_text_arguments_at(const Vector2 &p_at) const {
+	ERR_READ_THREAD_GUARD_V(Dictionary());
+	Dictionary arguments;
+	if (GDVIRTUAL_CALL(_get_tooltip_text_arguments_at, p_at, arguments)) {
+		return arguments;
+	}
+	return get_tooltip_text_arguments();
+}
+
 String Control::_get_accessibility_tooltip(const String &p_tooltip) const {
 	return data.tooltip_bbcode_enabled ? BBCodeText::strip_tags(p_tooltip) : p_tooltip;
 }
@@ -5100,6 +5119,8 @@ void Control::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_tooltip_auto_translate_mode"), &Control::get_tooltip_auto_translate_mode);
 	ClassDB::bind_method(D_METHOD("set_tooltip_bbcode_enabled", "enabled"), &Control::set_tooltip_bbcode_enabled);
 	ClassDB::bind_method(D_METHOD("is_tooltip_bbcode_enabled"), &Control::is_tooltip_bbcode_enabled);
+	ClassDB::bind_method(D_METHOD("set_tooltip_text_arguments", "arguments"), &Control::set_tooltip_text_arguments);
+	ClassDB::bind_method(D_METHOD("get_tooltip_text_arguments"), &Control::get_tooltip_text_arguments);
 	ClassDB::bind_method(D_METHOD("set_tooltip_text", "hint"), &Control::set_tooltip_text);
 	ClassDB::bind_method(D_METHOD("get_tooltip_text"), &Control::get_tooltip_text);
 	ClassDB::bind_method(D_METHOD("get_tooltip", "at_position"), &Control::get_tooltip, DEFVAL(Point2()));
@@ -5298,6 +5319,7 @@ void Control::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "tooltip_text", PROPERTY_HINT_MULTILINE_TEXT), "set_tooltip_text", "get_tooltip_text");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "tooltip_auto_translate_mode", PROPERTY_HINT_ENUM, "Inherit,Always,Disabled"), "set_tooltip_auto_translate_mode", "get_tooltip_auto_translate_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "tooltip_bbcode_enabled"), "set_tooltip_bbcode_enabled", "is_tooltip_bbcode_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "tooltip_text_arguments", PROPERTY_HINT_DICTIONARY_TYPE, "String;"), "set_tooltip_text_arguments", "get_tooltip_text_arguments");
 
 	ADD_GROUP("Focus", "focus_");
 	ADD_PROPERTYI(PropertyInfo(Variant::NODE_PATH, "focus_neighbor_left", PROPERTY_HINT_NODE_PATH_VALID_TYPES, "Control"), "set_focus_neighbor", "get_focus_neighbor", SIDE_LEFT);
@@ -5460,6 +5482,7 @@ void Control::_bind_methods() {
 	GDVIRTUAL_BIND(_get_tooltip, "at_position");
 	GDVIRTUAL_BIND(_get_tooltip_auto_translate_mode_at, "at_position");
 	GDVIRTUAL_BIND(_is_tooltip_bbcode_enabled_at, "at_position");
+	GDVIRTUAL_BIND(_get_tooltip_text_arguments_at, "at_position");
 
 	GDVIRTUAL_BIND(_get_drag_data, "at_position");
 	GDVIRTUAL_BIND(_can_drop_data, "at_position", "data");

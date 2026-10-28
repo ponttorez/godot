@@ -323,10 +323,10 @@ void MenuBar::_notification(int p_what) {
 					if (menu_cache[i].submenu_rid.is_valid()) {
 						int item_idx = nmenu->find_item_index_with_submenu(main_menu, menu_cache[i].submenu_rid);
 						if (item_idx >= 0) {
-							nmenu->set_item_text(main_menu, item_idx, _get_native_title(menu_cache[i], atr(menu_cache[i].name)));
+							nmenu->set_item_text(main_menu, item_idx, _get_native_title(menu_cache[i], _get_menu_xl_title(menu_cache[i])));
 						}
 					} else if (menu_cache[i].sysmenu_id != NativeMenu::INVALID_MENU_ID) {
-						nmenu->set_system_menu_text(menu_cache[i].sysmenu_id, _get_native_title(menu_cache[i], atr(menu_cache[i].name)));
+						nmenu->set_system_menu_text(menu_cache[i].sysmenu_id, _get_native_title(menu_cache[i], _get_menu_xl_title(menu_cache[i])));
 					}
 				}
 			}
@@ -542,7 +542,7 @@ void MenuBar::shape(Menu &p_menu) {
 			p_menu.bbcode->update_theme_fonts(this, theme_cache.font, theme_cache.font_size);
 		}
 		p_menu.bbcode->set_language(language.is_empty() ? _get_locale() : language);
-		p_menu.bbcode->set_text(atr(p_menu.name));
+		p_menu.bbcode->set_text(_get_menu_xl_title(p_menu));
 		p_menu.bbcode->set_text_direction(text_direction, is_layout_rtl());
 		return;
 	}
@@ -554,7 +554,7 @@ void MenuBar::shape(Menu &p_menu) {
 		p_menu.text_buf->set_direction((TextServer::Direction)text_direction);
 	}
 	const String &lang = language.is_empty() ? _get_locale() : language;
-	p_menu.text_buf->add_string(atr(p_menu.name), theme_cache.font, theme_cache.font_size, lang);
+	p_menu.text_buf->add_string(_get_menu_xl_title(p_menu), theme_cache.font, theme_cache.font_size, lang);
 }
 
 Size2 MenuBar::_get_menu_text_size(int p_index) const {
@@ -612,10 +612,10 @@ void MenuBar::_update_native_titles() {
 		if (menu_cache[i].submenu_rid.is_valid()) {
 			const int item_idx = nmenu->find_item_index_with_submenu(main_menu, menu_cache[i].submenu_rid);
 			if (item_idx >= 0) {
-				nmenu->set_item_text(main_menu, item_idx, _get_native_title(menu_cache[i], atr(menu_cache[i].name)));
+				nmenu->set_item_text(main_menu, item_idx, _get_native_title(menu_cache[i], _get_menu_xl_title(menu_cache[i])));
 			}
 		} else if (menu_cache[i].sysmenu_id != NativeMenu::INVALID_MENU_ID) {
-			nmenu->set_system_menu_text(menu_cache[i].sysmenu_id, _get_native_title(menu_cache[i], atr(menu_cache[i].name)));
+			nmenu->set_system_menu_text(menu_cache[i].sysmenu_id, _get_native_title(menu_cache[i], _get_menu_xl_title(menu_cache[i])));
 		}
 	}
 }
@@ -640,7 +640,7 @@ void MenuBar::_refresh_menu_names() {
 			if (is_global && menu_cache[i].submenu_rid.is_valid()) {
 				int item_idx = nmenu->find_item_index_with_submenu(main_menu, menu_cache[i].submenu_rid);
 				if (item_idx >= 0) {
-					nmenu->set_item_text(main_menu, item_idx, _get_native_title(menu_cache[i], atr(menu_cache[i].name)));
+					nmenu->set_item_text(main_menu, item_idx, _get_native_title(menu_cache[i], _get_menu_xl_title(menu_cache[i])));
 				}
 			}
 		}
@@ -705,6 +705,7 @@ void MenuBar::add_child_notify(Node *p_child) {
 	}
 	String menu_name = pm->get_title().is_empty() ? String(pm->get_name()) : pm->get_title();
 	Menu menu = Menu(menu_name);
+	menu.text_arguments = pm->get_meta("_menu_text_arguments", Dictionary());
 	shape(menu);
 
 	pm->connect("title_changed", callable_mp(this, &MenuBar::_popup_changed).bind(pm->get_instance_id()), CONNECT_REFERENCE_COUNTED);
@@ -720,7 +721,7 @@ void MenuBar::add_child_notify(Node *p_child) {
 
 		RID submenu_rid = pm->bind_global_menu();
 		if (!pm->is_system_menu()) {
-			nmenu->add_submenu_item(main_menu, _get_native_title(menu, atr(menu.name)), submenu_rid, global_menu_tag + "#" + itos(menu_cache.size() - 1), _find_global_start_index() + menu_cache.size() - 1);
+			nmenu->add_submenu_item(main_menu, _get_native_title(menu, _get_menu_xl_title(menu)), submenu_rid, global_menu_tag + "#" + itos(menu_cache.size() - 1), _find_global_start_index() + menu_cache.size() - 1);
 			menu_cache.write[menu_cache.size() - 1].submenu_rid = submenu_rid;
 			menu_cache.write[menu_cache.size() - 1].sysmenu_id = NativeMenu::INVALID_MENU_ID;
 		} else {
@@ -767,7 +768,7 @@ void MenuBar::move_child_notify(Node *p_child) {
 				}
 			}
 			if (new_idx != -1) {
-				nmenu->add_submenu_item(main_menu, _get_native_title(menu, atr(menu.name)), menu.submenu_rid, global_menu_tag + "#" + itos(new_idx), global_start + new_idx);
+				nmenu->add_submenu_item(main_menu, _get_native_title(menu, _get_menu_xl_title(menu)), menu.submenu_rid, global_menu_tag + "#" + itos(new_idx), global_start + new_idx);
 			}
 		}
 	}
@@ -842,6 +843,8 @@ void MenuBar::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_menu_title", "menu", "title"), &MenuBar::set_menu_title);
 	ClassDB::bind_method(D_METHOD("get_menu_title", "menu"), &MenuBar::get_menu_title);
+	ClassDB::bind_method(D_METHOD("set_menu_text_arguments", "menu", "arguments"), &MenuBar::set_menu_text_arguments);
+	ClassDB::bind_method(D_METHOD("get_menu_text_arguments", "menu"), &MenuBar::get_menu_text_arguments);
 
 	ClassDB::bind_method(D_METHOD("set_menu_tooltip", "menu", "tooltip"), &MenuBar::set_menu_tooltip);
 	ClassDB::bind_method(D_METHOD("get_menu_tooltip", "menu"), &MenuBar::get_menu_tooltip);
@@ -1014,7 +1017,7 @@ void MenuBar::set_menu_title(int p_menu, const String &p_title) {
 		RID main_menu = nmenu->get_system_menu(NativeMenu::MAIN_MENU_ID);
 		int item_idx = nmenu->find_item_index_with_submenu(main_menu, menu_cache[p_menu].submenu_rid);
 		if (item_idx >= 0) {
-			nmenu->set_item_text(main_menu, item_idx, _get_native_title(menu_cache[p_menu], atr(menu_cache[p_menu].name)));
+			nmenu->set_item_text(main_menu, item_idx, _get_native_title(menu_cache[p_menu], _get_menu_xl_title(menu_cache[p_menu])));
 		}
 	}
 	update_minimum_size();
@@ -1023,6 +1026,31 @@ void MenuBar::set_menu_title(int p_menu, const String &p_title) {
 String MenuBar::get_menu_title(int p_menu) const {
 	ERR_FAIL_INDEX_V(p_menu, menu_cache.size(), String());
 	return menu_cache[p_menu].name;
+}
+
+String MenuBar::_get_menu_xl_title(const Menu &p_menu) const {
+	return format_text_arguments(atr(p_menu.name), p_menu.text_arguments, p_menu.name, bbcode_enabled);
+}
+
+void MenuBar::set_menu_text_arguments(int p_menu, const Dictionary &p_arguments) {
+	ERR_FAIL_INDEX(p_menu, menu_cache.size());
+	PopupMenu *pm = get_menu_popup(p_menu);
+	// Saved with the popup, like its title.
+	if (p_arguments.is_empty()) {
+		pm->remove_meta("_menu_text_arguments");
+	} else {
+		pm->set_meta("_menu_text_arguments", p_arguments);
+	}
+	menu_cache.write[p_menu].text_arguments = p_arguments;
+	shape(menu_cache.write[p_menu]);
+	_update_native_titles();
+	update_minimum_size();
+	queue_redraw();
+}
+
+Dictionary MenuBar::get_menu_text_arguments(int p_menu) const {
+	ERR_FAIL_INDEX_V(p_menu, menu_cache.size(), Dictionary());
+	return menu_cache[p_menu].text_arguments;
 }
 
 void MenuBar::set_menu_tooltip(int p_menu, const String &p_tooltip) {
@@ -1098,6 +1126,15 @@ String MenuBar::get_tooltip(const Point2 &p_pos) const {
 	} else {
 		return String();
 	}
+}
+
+Dictionary MenuBar::get_tooltip_text_arguments_at(const Vector2 &p_at) const {
+	int index = _get_index_at_point(p_at);
+	if (index >= 0 && index < menu_cache.size()) {
+		// The tooltip of a menu is formatted like its title.
+		return menu_cache[index].text_arguments;
+	}
+	return Control::get_tooltip_text_arguments_at(p_at);
 }
 
 MenuBar::MenuBar() {

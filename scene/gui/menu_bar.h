@@ -48,6 +48,7 @@ class MenuBar : public Control {
 
 	struct Menu {
 		String name;
+		Dictionary text_arguments;
 		String tooltip;
 
 		Ref<TextLine> text_buf;
@@ -67,6 +68,8 @@ class MenuBar : public Control {
 		}
 	};
 	Vector<Menu> menu_cache;
+	// The translated title of the menu, formatted with its text_arguments.
+	String _get_menu_xl_title(const Menu &p_menu) const;
 
 	int focused_menu = -1;
 	int selected_menu = -1;
@@ -189,6 +192,9 @@ public:
 	void set_menu_title(int p_menu, const String &p_title);
 	String get_menu_title(int p_menu) const;
 
+	void set_menu_text_arguments(int p_menu, const Dictionary &p_arguments);
+	Dictionary get_menu_text_arguments(int p_menu) const;
+
 	void set_menu_tooltip(int p_menu, const String &p_tooltip);
 	String get_menu_tooltip(int p_menu) const;
 
@@ -201,6 +207,7 @@ public:
 	PopupMenu *get_menu_popup(int p_menu) const;
 
 	virtual String get_tooltip(const Point2 &p_pos) const override;
+	virtual Dictionary get_tooltip_text_arguments_at(const Vector2 &p_at) const override;
 
 	MenuBar();
 	~MenuBar();

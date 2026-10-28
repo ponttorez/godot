@@ -349,6 +349,13 @@
 				Returns the text of the item at the given [param index].
 			</description>
 		</method>
+		<method name="get_item_text_arguments" qualifiers="const">
+			<return type="Dictionary" />
+			<param index="0" name="index" type="int" />
+			<description>
+				Returns the arguments formatted in the translated text of the item at [param index], see [method set_item_text_arguments].
+			</description>
+		</method>
 		<method name="get_item_text_direction" qualifiers="const">
 			<return type="int" enum="Control.TextDirection" />
 			<param index="0" name="index" type="int" />
@@ -624,6 +631,14 @@
 				Sets the text of the item at the given [param index].
 			</description>
 		</method>
+		<method name="set_item_text_arguments">
+			<return type="void" />
+			<param index="0" name="index" type="int" />
+			<param index="1" name="arguments" type="Dictionary" />
+			<description>
+				Sets the arguments formatted in the translated text of the item at [param index] like [member Label.text_arguments]. Its tooltip is formatted with them too.
+			</description>
+		</method>
 		<method name="set_item_text_direction">
 			<return type="void" />
 			<param index="0" name="index" type="int" />
@@ -702,6 +717,10 @@
 		</member>
 		<member name="item_{index}/text" type="String" setter="" getter="" default="&quot;&quot;">
 			The text of the item at [code]index[/code].
+			[b]Note:[/b] [code]index[/code] is a value in the [code]0 .. item_count - 1[/code] range.
+		</member>
+		<member name="item_{index}/text_arguments" type="Dictionary" setter="" getter="" default="{}">
+			The arguments formatted in the translated text of the item at [code]index[/code], like [member Label.text_arguments].
 			[b]Note:[/b] [code]index[/code] is a value in the [code]0 .. item_count - 1[/code] range.
 		</member>
 		<member name="prefer_native_menu" type="bool" setter="set_prefer_native_menu" getter="is_prefer_native_menu" default="false">

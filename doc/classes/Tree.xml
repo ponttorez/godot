@@ -126,6 +126,13 @@
 				Returns column title language code.
 			</description>
 		</method>
+		<method name="get_column_title_text_arguments" qualifiers="const">
+			<return type="Dictionary" />
+			<param index="0" name="column" type="int" />
+			<description>
+				Returns the arguments formatted in the translated title of the [param column], see [method set_column_title_text_arguments].
+			</description>
+		</method>
 		<method name="get_column_title_tooltip_text" qualifiers="const">
 			<return type="String" />
 			<param index="0" name="column" type="int" />
@@ -340,6 +347,14 @@
 			<param index="1" name="language" type="String" />
 			<description>
 				Sets the language code of the given [param column]'s title to [param language]. This is used for line-breaking and text shaping algorithms. If [param language] is empty, the current locale is used.
+			</description>
+		</method>
+		<method name="set_column_title_text_arguments">
+			<return type="void" />
+			<param index="0" name="column" type="int" />
+			<param index="1" name="arguments" type="Dictionary" />
+			<description>
+				Sets the arguments formatted in the translated title of the [param column] like [member Label.text_arguments]. The title tooltip of the column is formatted with them too.
 			</description>
 		</method>
 		<method name="set_column_title_tooltip_text">

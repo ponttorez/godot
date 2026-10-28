@@ -54,6 +54,9 @@ void Label3D::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_text", "text"), &Label3D::set_text);
 	ClassDB::bind_method(D_METHOD("get_text"), &Label3D::get_text);
+	ClassDB::bind_method(D_METHOD("set_text_arguments", "arguments"), &Label3D::set_text_arguments);
+	ClassDB::bind_method(D_METHOD("get_text_arguments"), &Label3D::get_text_arguments);
+	ClassDB::bind_method(D_METHOD("set_text_argument", "name", "value"), &Label3D::set_text_argument);
 
 	ClassDB::bind_method(D_METHOD("set_text_direction", "direction"), &Label3D::set_text_direction);
 	ClassDB::bind_method(D_METHOD("get_text_direction"), &Label3D::get_text_direction);
@@ -154,6 +157,7 @@ void Label3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::COLOR, "modulate"), "set_modulate", "get_modulate");
 	ADD_PROPERTY(PropertyInfo(Variant::COLOR, "outline_modulate"), "set_outline_modulate", "get_outline_modulate");
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "text", PROPERTY_HINT_MULTILINE_TEXT, ""), "set_text", "get_text");
+	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "text_arguments", PROPERTY_HINT_DICTIONARY_TYPE, "String;"), "set_text_arguments", "get_text_arguments");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "font", PROPERTY_HINT_RESOURCE_TYPE, Font::get_class_static()), "set_font", "get_font");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "font_size", PROPERTY_HINT_RANGE, "1,256,1,or_greater,suffix:px"), "set_font_size", "get_font_size");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "outline_size", PROPERTY_HINT_RANGE, "0,127,1,suffix:px"), "set_outline_size", "get_outline_size");
@@ -218,7 +222,7 @@ void Label3D::_notification(int p_what) {
 		} break;
 		case NOTIFICATION_TRANSLATION_CHANGED: {
 			// Language update might change the appearance of some characters.
-			xl_text = atr(text);
+			xl_text = format_text_arguments(atr(text), text_arguments, text);
 			dirty_text = true;
 			_queue_update();
 		} break;
@@ -667,13 +671,31 @@ void Label3D::set_text(const String &p_string) {
 	}
 
 	text = p_string;
-	xl_text = atr(p_string);
+	xl_text = format_text_arguments(atr(p_string), text_arguments, p_string);
 	dirty_text = true;
 	_queue_update();
 }
 
 String Label3D::get_text() const {
 	return text;
+}
+
+void Label3D::set_text_arguments(const Dictionary &p_arguments) {
+	text_arguments = p_arguments;
+	xl_text = format_text_arguments(atr(text), text_arguments, text);
+	dirty_text = true;
+	_queue_update();
+}
+
+Dictionary Label3D::get_text_arguments() const {
+	return text_arguments;
+}
+
+void Label3D::set_text_argument(const String &p_name, const Variant &p_value) {
+	text_arguments[p_name] = p_value;
+	xl_text = format_text_arguments(atr(text), text_arguments, text);
+	dirty_text = true;
+	_queue_update();
 }
 
 void Label3D::set_horizontal_alignment(HorizontalAlignment p_alignment) {

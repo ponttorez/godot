@@ -361,6 +361,7 @@ private:
 		StringName translation_context;
 		AutoTranslateMode tooltip_auto_translate_mode = AUTO_TRANSLATE_MODE_INHERIT;
 		bool tooltip_bbcode_enabled = false;
+		Dictionary tooltip_text_arguments;
 
 		bool text_effects_animated = false;
 
@@ -517,6 +518,7 @@ protected:
 	GDVIRTUAL1RC(String, _get_tooltip, Vector2)
 	GDVIRTUAL1RC(AutoTranslateMode, _get_tooltip_auto_translate_mode_at, Vector2)
 	GDVIRTUAL1RC(bool, _is_tooltip_bbcode_enabled_at, Vector2)
+	GDVIRTUAL1RC(Dictionary, _get_tooltip_text_arguments_at, Vector2)
 
 	// A tooltip shown as BBCode without its tags, for assistive technologies.
 	String _get_accessibility_tooltip(const String &p_tooltip) const;
@@ -926,6 +928,10 @@ public:
 	bool is_tooltip_bbcode_enabled() const;
 	// Whether the default tooltip shows the tooltip at p_at as BBCode.
 	virtual bool is_tooltip_bbcode_enabled_at(const Vector2 &p_at) const;
+	void set_tooltip_text_arguments(const Dictionary &p_arguments);
+	Dictionary get_tooltip_text_arguments() const;
+	// The text_arguments the default tooltip formats the tooltip at p_at with.
+	virtual Dictionary get_tooltip_text_arguments_at(const Vector2 &p_at) const;
 
 	// Extra properties.
 

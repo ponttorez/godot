@@ -97,6 +97,13 @@
 				Returns tab [Rect2] with local position and size.
 			</description>
 		</method>
+		<method name="get_tab_text_arguments" qualifiers="const">
+			<return type="Dictionary" />
+			<param index="0" name="tab_idx" type="int" />
+			<description>
+				Returns the arguments formatted in the translated title of the tab at [param tab_idx], see [method set_tab_text_arguments].
+			</description>
+		</method>
 		<method name="get_tab_text_direction" qualifiers="const">
 			<return type="int" enum="Control.TextDirection" />
 			<param index="0" name="tab_idx" type="int" />
@@ -215,6 +222,14 @@
 				Sets the metadata value for the tab at index [param tab_idx], which can be retrieved later using [method get_tab_metadata].
 			</description>
 		</method>
+		<method name="set_tab_text_arguments">
+			<return type="void" />
+			<param index="0" name="tab_idx" type="int" />
+			<param index="1" name="arguments" type="Dictionary" />
+			<description>
+				Sets the arguments formatted in the translated title of the tab at [param tab_idx] like [member Label.text_arguments]. Its tooltip is formatted with them too.
+			</description>
+		</method>
 		<method name="set_tab_text_direction">
 			<return type="void" />
 			<param index="0" name="tab_idx" type="int" />
@@ -291,6 +306,10 @@
 		</member>
 		<member name="tab_{index}/icon" type="Texture2D" setter="" getter="">
 			If [code]true[/code], the tab at [code]index[/code] is hidden.
+			[b]Note:[/b] [code]index[/code] is a value in the [code]0 .. tab_count - 1[/code] range.
+		</member>
+		<member name="tab_{index}/text_arguments" type="Dictionary" setter="" getter="" default="{}">
+			The arguments formatted in the translated title of the tab at [code]index[/code], like [member Label.text_arguments].
 			[b]Note:[/b] [code]index[/code] is a value in the [code]0 .. tab_count - 1[/code] range.
 		</member>
 		<member name="tab_{index}/title" type="String" setter="" getter="" default="&quot;&quot;">

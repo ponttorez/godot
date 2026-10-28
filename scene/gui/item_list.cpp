@@ -140,7 +140,9 @@ void ItemList::set_bbcode_enabled(bool p_enabled) {
 	}
 	bbcode_enabled = p_enabled;
 	for (int i = 0; i < items.size(); i++) {
-		_sync_item_bbcode(i);
+		// The arguments are escaped with BBCode.
+		items.write[i].xl_text = _atr(i, items[i].text);
+		_shape_text(i);
 	}
 	shape_changed = true;
 	queue_redraw();
@@ -203,6 +205,24 @@ void ItemList::set_item_text(int p_idx, const String &p_text) {
 String ItemList::get_item_text(int p_idx) const {
 	ERR_FAIL_INDEX_V(p_idx, items.size(), String());
 	return items[p_idx].text;
+}
+
+void ItemList::set_item_text_arguments(int p_idx, const Dictionary &p_arguments) {
+	if (p_idx < 0) {
+		p_idx += get_item_count();
+	}
+	ERR_FAIL_INDEX(p_idx, items.size());
+	items.write[p_idx].text_arguments = p_arguments;
+	items.write[p_idx].xl_text = _atr(p_idx, items[p_idx].text);
+	_shape_text(p_idx);
+	queue_accessibility_update();
+	queue_redraw();
+	shape_changed = true;
+}
+
+Dictionary ItemList::get_item_text_arguments(int p_idx) const {
+	ERR_FAIL_INDEX_V(p_idx, items.size(), Dictionary());
+	return items[p_idx].text_arguments;
 }
 
 void ItemList::set_item_text_direction(int p_idx, Control::TextDirection p_text_direction) {
@@ -2079,19 +2099,22 @@ void ItemList::_shift_range_select(int p_from, int p_to) {
 
 String ItemList::_atr(int p_idx, const String &p_text) const {
 	ERR_FAIL_INDEX_V(p_idx, items.size(), atr(p_text));
+	String translated;
 	switch (items[p_idx].auto_translate_mode) {
 		case AUTO_TRANSLATE_MODE_INHERIT: {
-			return atr(p_text);
+			translated = atr(p_text);
 		} break;
 		case AUTO_TRANSLATE_MODE_ALWAYS: {
-			return tr(p_text);
+			translated = tr(p_text);
 		} break;
 		case AUTO_TRANSLATE_MODE_DISABLED: {
-			return p_text;
+			translated = p_text;
 		} break;
+		default: {
+			ERR_FAIL_V_MSG(atr(p_text), "Unexpected auto translate mode: " + itos(items[p_idx].auto_translate_mode));
+		}
 	}
-
-	ERR_FAIL_V_MSG(atr(p_text), "Unexpected auto translate mode: " + itos(items[p_idx].auto_translate_mode));
+	return format_text_arguments(translated, items[p_idx].text_arguments, p_text, bbcode_enabled);
 }
 
 int ItemList::get_item_at_position(const Point2 &p_pos, bool p_exact) const {
@@ -2179,6 +2202,15 @@ bool ItemList::is_tooltip_bbcode_enabled_at(const Vector2 &p_at) const {
 		return items[closest].bbcode.is_valid();
 	}
 	return Control::is_tooltip_bbcode_enabled_at(p_at);
+}
+
+Dictionary ItemList::get_tooltip_text_arguments_at(const Vector2 &p_at) const {
+	int closest = get_item_at_position(p_at, true);
+	if (closest != -1) {
+		// The tooltip of an item is formatted like its text.
+		return items[closest].text_arguments;
+	}
+	return Control::get_tooltip_text_arguments_at(p_at);
 }
 
 Node::AutoTranslateMode ItemList::get_tooltip_auto_translate_mode_at(const Point2 &p_at) const {
@@ -2436,6 +2468,8 @@ void ItemList::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_item_text", "idx", "text"), &ItemList::set_item_text);
 	ClassDB::bind_method(D_METHOD("get_item_text", "idx"), &ItemList::get_item_text);
+	ClassDB::bind_method(D_METHOD("set_item_text_arguments", "idx", "arguments"), &ItemList::set_item_text_arguments);
+	ClassDB::bind_method(D_METHOD("get_item_text_arguments", "idx"), &ItemList::get_item_text_arguments);
 
 	ClassDB::bind_method(D_METHOD("set_item_icon", "idx", "icon"), &ItemList::set_item_icon);
 	ClassDB::bind_method(D_METHOD("get_item_icon", "idx"), &ItemList::get_item_icon);
@@ -2637,6 +2671,7 @@ void ItemList::_bind_methods() {
 	base_property_helper.set_prefix("item_");
 	base_property_helper.set_array_length_getter(&ItemList::get_item_count);
 	base_property_helper.register_property(PropertyInfo(Variant::STRING, "text"), defaults.text, &ItemList::set_item_text, &ItemList::get_item_text);
+	base_property_helper.register_property(PropertyInfo(Variant::DICTIONARY, "text_arguments", PROPERTY_HINT_DICTIONARY_TYPE, "String;"), defaults.text_arguments, &ItemList::set_item_text_arguments, &ItemList::get_item_text_arguments);
 	base_property_helper.register_property(PropertyInfo(Variant::OBJECT, "icon", PROPERTY_HINT_RESOURCE_TYPE, Texture2D::get_class_static()), defaults.icon, &ItemList::set_item_icon, &ItemList::get_item_icon);
 	base_property_helper.register_property(PropertyInfo(Variant::BOOL, "selectable"), defaults.selectable, &ItemList::set_item_selectable, &ItemList::is_item_selectable);
 	base_property_helper.register_property(PropertyInfo(Variant::BOOL, "disabled"), defaults.disabled, &ItemList::set_item_disabled, &ItemList::is_item_disabled);

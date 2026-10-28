@@ -163,6 +163,13 @@
 				Return the auto-translation mode at the given [param at_position]. If not implemented, the [member tooltip_auto_translate_mode] property will be used instead.
 			</description>
 		</method>
+		<method name="_get_tooltip_text_arguments_at" qualifiers="virtual const">
+			<return type="Dictionary" />
+			<param index="0" name="at_position" type="Vector2" />
+			<description>
+				Virtual method to be implemented by the user. Returns the arguments the default tooltip formats the tooltip at [param at_position] with, see [member tooltip_text_arguments].
+			</description>
+		</method>
 		<method name="_gui_input" qualifiers="virtual">
 			<return type="void" />
 			<param index="0" name="event" type="InputEvent" />
@@ -1356,6 +1363,9 @@
 			Theme.SetColor("font_color", "TooltipLabel", new Color(0, 1, 1));
 			[/csharp]
 			[/codeblocks]
+		</member>
+		<member name="tooltip_text_arguments" type="Dictionary" setter="set_tooltip_text_arguments" getter="get_tooltip_text_arguments" default="{}">
+			Arguments the default tooltip formats [member tooltip_text] with, like [member Label.text_arguments]. [Tree], [ItemList], [TabBar], [MenuBar] and [PopupMenu] format the tooltips of their items with the arguments of the items instead.
 		</member>
 		<member name="translation_context" type="StringName" setter="set_translation_context" getter="get_translation_context" default="&amp;&quot;&quot;">
 			The translation context used when translating this control's displayed text, if it has any. Also used when generating translation templates.
