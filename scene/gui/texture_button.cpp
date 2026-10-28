@@ -63,6 +63,14 @@ Size2 TextureButton::get_minimum_size() const {
 
 bool TextureButton::has_point(const Point2 &p_point) const {
 	if (click_mask.is_valid()) {
+		// The raycast padding limits the mask, and the area it adds outside of the button receives input as a whole.
+		if (!get_raycast_rect().has_point(p_point)) {
+			return false;
+		}
+		if (!Rect2(Point2(), get_size()).has_point(p_point)) {
+			return true;
+		}
+
 		Point2 point = p_point;
 		Rect2 rect;
 		Size2 mask_size = click_mask->get_size();

@@ -288,7 +288,9 @@ String FoldableContainer::get_tooltip(const Point2 &p_pos) const {
 
 bool FoldableContainer::has_point(const Point2 &p_point) const {
 	if (folded) {
-		return _get_title_rect().has_point(p_point);
+		// The raycast padding applies to the title, which is the only part that receives input.
+		const Rect2 title_rect = _get_title_rect().grow_individual(-get_raycast_padding(SIDE_LEFT), -get_raycast_padding(SIDE_TOP), -get_raycast_padding(SIDE_RIGHT), -get_raycast_padding(SIDE_BOTTOM));
+		return title_rect.size.x > 0 && title_rect.size.y > 0 && title_rect.has_point(p_point);
 	}
 	return Control::has_point(p_point);
 }
