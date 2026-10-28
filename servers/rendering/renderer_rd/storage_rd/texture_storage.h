@@ -428,6 +428,18 @@ private:
 		RID framebuffer_uniform_set;
 		RID backbuffer_uniform_set;
 
+		// The buffers of the canvas groups inside other canvas groups, from nesting level 1, as the outermost canvas
+		// groups are drawn into the backbuffer. The nested uniform sets have the buffer of the next level as screen
+		// texture, to draw the canvas groups inside, the others have the color texture like the backbuffer.
+		struct CanvasGroupBuffer {
+			RID texture;
+			RID framebuffer;
+			RID uniform_set;
+			RID nested_uniform_set;
+		};
+		LocalVector<CanvasGroupBuffer> canvas_group_buffers;
+		RID backbuffer_nested_uniform_set;
+
 		RID sdf_buffer_write;
 		RID sdf_buffer_write_fb;
 		RID sdf_buffer_process[2];
@@ -501,6 +513,7 @@ private:
 	void _clear_render_target(RenderTarget *rt);
 	void _update_render_target(RenderTarget *rt);
 	void _create_render_target_backbuffer(RenderTarget *rt);
+	RenderTarget::CanvasGroupBuffer *_get_render_target_canvas_group_buffer(RenderTarget *rt, int p_level);
 	void _render_target_allocate_sdf(RenderTarget *rt);
 	void _render_target_clear_sdf(RenderTarget *rt);
 	Rect2i _render_target_get_sdf_rect(const RenderTarget *rt) const;
@@ -873,6 +886,15 @@ public:
 	void render_target_copy_to_back_buffer(RID p_render_target, const Rect2i &p_region, bool p_gen_mipmaps);
 	void render_target_clear_back_buffer(RID p_render_target, const Rect2i &p_region, const Color &p_color);
 	void render_target_gen_back_buffer_mipmaps(RID p_render_target, const Rect2i &p_region);
+
+	// The buffers the children of the canvas groups are drawn into, by nesting level. Level 0 is the backbuffer.
+	RID render_target_get_canvas_group_texture(RID p_render_target, int p_level);
+	RID render_target_get_canvas_group_framebuffer(RID p_render_target, int p_level);
+	RID render_target_get_canvas_group_uniform_set(RID p_render_target, int p_level, bool p_nested);
+	void render_target_set_canvas_group_uniform_set(RID p_render_target, int p_level, bool p_nested, RID p_uniform_set);
+	void render_target_clear_canvas_group_buffer(RID p_render_target, int p_level);
+	// Copies p_region from what the canvas group is drawn into, the render target or the buffer of the level before.
+	void render_target_copy_to_canvas_group_buffer(RID p_render_target, int p_level, const Rect2i &p_region);
 	RID render_target_get_back_buffer_uniform_set(RID p_render_target, RID p_base_shader);
 
 	virtual void render_target_request_clear(RID p_render_target, const Color &p_clear_color) override;

@@ -376,7 +376,7 @@ _FORCE_INLINE_ static uint32_t _indices_to_primitives(RSE::PrimitiveType p_primi
 	return (p_indices - subtractor[p_primitive]) / divisor[p_primitive];
 }
 
-RID RendererCanvasRenderRD::_create_base_uniform_set(RID p_to_render_target, bool p_backbuffer) {
+RID RendererCanvasRenderRD::_create_base_uniform_set(RID p_to_render_target, int p_canvas_group_level, int p_screen_level) {
 	RendererRD::TextureStorage *texture_storage = RendererRD::TextureStorage::get_singleton();
 	RendererRD::MaterialStorage *material_storage = RendererRD::MaterialStorage::get_singleton();
 
@@ -429,7 +429,9 @@ RID RendererCanvasRenderRD::_create_base_uniform_set(RID p_to_render_target, boo
 		u.uniform_type = RD::UNIFORM_TYPE_TEXTURE;
 		u.binding = 6;
 		RID screen;
-		if (p_backbuffer) {
+		if (p_canvas_group_level >= 0 && p_screen_level > p_canvas_group_level) {
+			screen = texture_storage->render_target_get_canvas_group_texture(p_to_render_target, p_screen_level);
+		} else if (p_canvas_group_level >= 0) {
 			screen = texture_storage->render_target_get_rd_texture(p_to_render_target);
 		} else {
 			screen = texture_storage->render_target_get_rd_backbuffer(p_to_render_target);
@@ -461,8 +463,8 @@ RID RendererCanvasRenderRD::_create_base_uniform_set(RID p_to_render_target, boo
 	material_storage->samplers_rd_get_default().append_uniforms(uniforms, SAMPLERS_BINDING_FIRST_INDEX);
 
 	RID uniform_set = RD::get_singleton()->uniform_set_create(uniforms, shader.default_version_rd_shader, BASE_UNIFORM_SET);
-	if (p_backbuffer) {
-		texture_storage->render_target_set_backbuffer_uniform_set(p_to_render_target, uniform_set);
+	if (p_canvas_group_level >= 0) {
+		texture_storage->render_target_set_canvas_group_uniform_set(p_to_render_target, p_canvas_group_level, p_screen_level > p_canvas_group_level, uniform_set);
 	} else {
 		texture_storage->render_target_set_framebuffer_uniform_set(p_to_render_target, uniform_set);
 	}
@@ -747,7 +749,11 @@ void RendererCanvasRenderRD::canvas_render_items(RID p_to_render_target, Item *p
 	bool backbuffer_copy = false;
 	bool backbuffer_gen_mipmaps = false;
 
-	Item *canvas_group_owner = nullptr;
+	// The canvas groups being drawn, outermost first. The children of each are drawn into the buffer of its nesting level,
+	// and it's drawn into the buffer of its parent from it, or into the render target from the backbuffer.
+	LocalVector<Item *> canvas_groups;
+	// Whether a canvas group was drawn into the current level from the buffer of the next one, since the last render.
+	bool nested_canvas_group_drawn = false;
 	bool skip_item = false;
 
 	bool update_skeletons = false;
@@ -759,8 +765,21 @@ void RendererCanvasRenderRD::canvas_render_items(RID p_to_render_target, Item *p
 	to_render_target.render_target = p_to_render_target;
 	to_render_target.use_linear_colors = use_linear_colors;
 
+	// Renders the pending items into the buffer of the innermost canvas group, or into the render target.
+	auto render_pending_items = [&]() {
+		if (update_skeletons) {
+			mesh_storage->update_mesh_instances();
+			update_skeletons = false;
+		}
+		const int level = (int)canvas_groups.size() - 1;
+		const int screen_level = (level >= 0 && nested_canvas_group_drawn) ? level + 1 : -1;
+		_render_batch_items(to_render_target, item_count, canvas_transform_inverse, p_light_list, r_sdf_used, level, screen_level, r_render_info);
+		item_count = 0;
+		nested_canvas_group_drawn = false;
+	};
+
 	while (ci) {
-		if (ci->copy_back_buffer && canvas_group_owner == nullptr) {
+		if (ci->copy_back_buffer && canvas_groups.is_empty()) {
 			backbuffer_copy = true;
 
 			if (ci->copy_back_buffer->full) {
@@ -775,7 +794,7 @@ void RendererCanvasRenderRD::canvas_render_items(RID p_to_render_target, Item *p
 		if (material.is_valid()) {
 			CanvasMaterialData *md = static_cast<CanvasMaterialData *>(material_storage->material_get_data(material, RendererRD::MaterialStorage::SHADER_TYPE_2D));
 			if (md && md->shader_data->is_valid()) {
-				if (md->shader_data->uses_screen_texture && canvas_group_owner == nullptr) {
+				if (md->shader_data->uses_screen_texture && canvas_groups.is_empty()) {
 					if (!material_screen_texture_cached) {
 						backbuffer_copy = true;
 						back_buffer_rect = Rect2();
@@ -811,54 +830,56 @@ void RendererCanvasRenderRD::canvas_render_items(RID p_to_render_target, Item *p
 		}
 
 		if (ci->canvas_group_owner != nullptr) {
-			if (canvas_group_owner == nullptr) {
-				// Canvas group begins here, render until before this item
-				if (update_skeletons) {
-					mesh_storage->update_mesh_instances();
-					update_skeletons = false;
-				}
-				_render_batch_items(to_render_target, item_count, canvas_transform_inverse, p_light_list, r_sdf_used, false, r_render_info);
-				item_count = 0;
-
-				if (ci->canvas_group_owner->canvas_group->mode != RSE::CANVAS_GROUP_MODE_TRANSPARENT) {
-					Rect2i group_rect = ci->canvas_group_owner->global_rect_cache;
-					texture_storage->render_target_copy_to_back_buffer(p_to_render_target, group_rect, false);
-					if (ci->canvas_group_owner->canvas_group->mode == RSE::CANVAS_GROUP_MODE_CLIP_AND_DRAW) {
-						ci->canvas_group_owner->use_canvas_group = false;
-						items[item_count++] = ci->canvas_group_owner;
-					}
-				} else if (!backbuffer_cleared) {
-					texture_storage->render_target_clear_back_buffer(p_to_render_target, Rect2i(), Color(0, 0, 0, 0));
-					backbuffer_cleared = true;
-				}
-
-				backbuffer_copy = false;
-				canvas_group_owner = ci->canvas_group_owner; //continue until owner found
+			// The canvas groups that begin here: the marked one and the ones around it up to the group being drawn.
+			LocalVector<Item *> begun_groups;
+			Item *current_group = canvas_groups.is_empty() ? nullptr : canvas_groups[canvas_groups.size() - 1];
+			for (Item *group = ci->canvas_group_owner; group != nullptr && group != current_group; group = group->canvas_group_parent) {
+				begun_groups.push_back(group);
 			}
 
+			for (int i = begun_groups.size() - 1; i >= 0; i--) {
+				Item *group = begun_groups[i];
+				// Canvas group begins here, render until before this item
+				render_pending_items();
+				canvas_groups.push_back(group);
+				const int level = canvas_groups.size() - 1;
+
+				if (group->canvas_group->mode != RSE::CANVAS_GROUP_MODE_TRANSPARENT) {
+					texture_storage->render_target_copy_to_canvas_group_buffer(p_to_render_target, level, group->global_rect_cache);
+					if (group->canvas_group->mode == RSE::CANVAS_GROUP_MODE_CLIP_AND_DRAW) {
+						group->use_canvas_group = false;
+						items[item_count++] = group;
+					}
+				} else if (level > 0 || !backbuffer_cleared) {
+					texture_storage->render_target_clear_canvas_group_buffer(p_to_render_target, level);
+					backbuffer_cleared = backbuffer_cleared || level == 0;
+				}
+			}
+
+			backbuffer_copy = false;
 			ci->canvas_group_owner = nullptr; //must be cleared
 		}
 
-		if (canvas_group_owner == nullptr && ci->canvas_group != nullptr && ci->canvas_group->mode != RSE::CANVAS_GROUP_MODE_CLIP_AND_DRAW) {
-			skip_item = true;
+		const bool is_current_group = !canvas_groups.is_empty() && ci == canvas_groups[canvas_groups.size() - 1];
+		if (!is_current_group && ci->canvas_group != nullptr && ci->canvas_group->mode != RSE::CANVAS_GROUP_MODE_CLIP_AND_DRAW) {
+			skip_item = true; // A canvas group with nothing to draw.
 		}
 
-		if (ci == canvas_group_owner) {
-			if (update_skeletons) {
-				mesh_storage->update_mesh_instances();
-				update_skeletons = false;
-			}
+		if (is_current_group) {
+			render_pending_items();
+			const int level = canvas_groups.size() - 1;
 
-			_render_batch_items(to_render_target, item_count, canvas_transform_inverse, p_light_list, r_sdf_used, true, r_render_info);
-			item_count = 0;
-
-			if (ci->canvas_group->blur_mipmaps) {
+			if (ci->canvas_group->blur_mipmaps && level == 0) {
 				texture_storage->render_target_gen_back_buffer_mipmaps(p_to_render_target, ci->global_rect_cache);
 			}
 
-			canvas_group_owner = nullptr;
-			// Backbuffer is dirty now and needs to be re-cleared if another CanvasGroup needs it.
-			backbuffer_cleared = false;
+			canvas_groups.remove_at(level);
+			if (level == 0) {
+				// Backbuffer is dirty now and needs to be re-cleared if another CanvasGroup needs it.
+				backbuffer_cleared = false;
+			} else {
+				nested_canvas_group_drawn = true;
+			}
 
 			// Tell the renderer to paint this as a canvas group
 			ci->use_canvas_group = true;
@@ -868,13 +889,7 @@ void RendererCanvasRenderRD::canvas_render_items(RID p_to_render_target, Item *p
 
 		if (backbuffer_copy) {
 			//render anything pending, including clearing if no items
-			if (update_skeletons) {
-				mesh_storage->update_mesh_instances();
-				update_skeletons = false;
-			}
-
-			_render_batch_items(to_render_target, item_count, canvas_transform_inverse, p_light_list, r_sdf_used, false, r_render_info);
-			item_count = 0;
+			render_pending_items();
 
 			texture_storage->render_target_copy_to_back_buffer(p_to_render_target, back_buffer_rect, backbuffer_gen_mipmaps);
 
@@ -898,14 +913,7 @@ void RendererCanvasRenderRD::canvas_render_items(RID p_to_render_target, Item *p
 		}
 
 		if (!ci->next || item_count == MAX_RENDER_ITEMS - 1) {
-			if (update_skeletons) {
-				mesh_storage->update_mesh_instances();
-				update_skeletons = false;
-			}
-
-			_render_batch_items(to_render_target, item_count, canvas_transform_inverse, p_light_list, r_sdf_used, canvas_group_owner != nullptr, r_render_info);
-			//then reset
-			item_count = 0;
+			render_pending_items();
 		}
 
 		ci = ci->next;
@@ -2109,7 +2117,14 @@ uniform sampler2D screen_texture : hint_screen_texture, repeat_disable, filter_n
 
 void fragment() {
 	vec4 c = textureLod(screen_texture, SCREEN_UV, 0.0);
+
+	// What's behind can be transparent, in a canvas group or a transparent viewport.
+	if (c.a > 0.0001) {
+		c.rgb /= c.a;
+	}
+
 	COLOR.rgb = c.rgb;
+	COLOR.a *= c.a;
 }
 )");
 		default_clip_children_material = material_storage->material_allocate();
@@ -2184,7 +2199,7 @@ uint32_t RendererCanvasRenderRD::get_pipeline_compilations(RSE::PipelineSource p
 	return shader.pipeline_compilations[p_source];
 }
 
-void RendererCanvasRenderRD::_render_batch_items(RenderTarget p_to_render_target, int p_item_count, const Transform2D &p_canvas_transform_inverse, Light *p_lights, bool &r_sdf_used, bool p_to_backbuffer, RenderingServerTypes::RenderInfo *r_render_info) {
+void RendererCanvasRenderRD::_render_batch_items(RenderTarget p_to_render_target, int p_item_count, const Transform2D &p_canvas_transform_inverse, Light *p_lights, bool &r_sdf_used, int p_canvas_group_level, int p_screen_level, RenderingServerTypes::RenderInfo *r_render_info) {
 	// Record batches
 	{
 		RendererRD::MaterialStorage *material_storage = RendererRD::MaterialStorage::get_singleton();
@@ -2268,9 +2283,9 @@ void RendererCanvasRenderRD::_render_batch_items(RenderTarget p_to_render_target
 	bool clear = false;
 	Color clear_color;
 
-	if (p_to_backbuffer) {
-		framebuffer = texture_storage->render_target_get_rd_backbuffer_framebuffer(p_to_render_target.render_target);
-		fb_uniform_set = texture_storage->render_target_get_backbuffer_uniform_set(p_to_render_target.render_target);
+	if (p_canvas_group_level >= 0) {
+		framebuffer = texture_storage->render_target_get_canvas_group_framebuffer(p_to_render_target.render_target, p_canvas_group_level);
+		fb_uniform_set = texture_storage->render_target_get_canvas_group_uniform_set(p_to_render_target.render_target, p_canvas_group_level, p_screen_level > p_canvas_group_level);
 	} else {
 		framebuffer = texture_storage->render_target_get_rd_framebuffer(p_to_render_target.render_target);
 		texture_storage->render_target_set_msaa_needs_resolve(p_to_render_target.render_target, false); // If MSAA is enabled, our framebuffer will be resolved!
@@ -2288,7 +2303,7 @@ void RendererCanvasRenderRD::_render_batch_items(RenderTarget p_to_render_target
 	}
 
 	if (fb_uniform_set.is_null() || !RD::get_singleton()->uniform_set_is_valid(fb_uniform_set)) {
-		fb_uniform_set = _create_base_uniform_set(p_to_render_target.render_target, p_to_backbuffer);
+		fb_uniform_set = _create_base_uniform_set(p_to_render_target.render_target, p_canvas_group_level, p_screen_level);
 	}
 
 	RD::FramebufferFormatID fb_format = RD::get_singleton()->framebuffer_get_format(framebuffer);

@@ -361,7 +361,11 @@ public:
 		Rect2 final_clip_rect;
 		Item *final_clip_owner = nullptr;
 		Item *material_owner = nullptr;
+		// The innermost canvas group that begins at this item. The groups around it that begin here too are found through
+		// canvas_group_parent. Set while culling, and cleared once drawn.
 		Item *canvas_group_owner = nullptr;
+		// The canvas group this canvas group is drawn into when it's inside another one, set while culling.
+		Item *canvas_group_parent = nullptr;
 		ViewportRender *vp_render = nullptr;
 		bool distance_field;
 		bool light_masked;

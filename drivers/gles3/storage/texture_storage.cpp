@@ -2896,6 +2896,11 @@ void TextureStorage::_clear_render_target(RenderTarget *rt) {
 		GLES3::Utilities::get_singleton()->texture_free_data(rt->backbuffer_depth);
 		rt->backbuffer_depth = 0;
 	}
+	for (const RenderTarget::CanvasGroupBuffer &buffer : rt->canvas_group_buffers) {
+		glDeleteFramebuffers(1, &buffer.fbo);
+		GLES3::Utilities::get_singleton()->texture_free_data(buffer.color);
+	}
+	rt->canvas_group_buffers.clear();
 	_render_target_clear_sdf(rt);
 }
 
@@ -3714,6 +3719,99 @@ void TextureStorage::render_target_clear_back_buffer(RID p_render_target, const 
 		glBindFramebuffer(GL_FRAMEBUFFER, rt->backbuffer_fbo);
 		GLES3::CopyEffects::get_singleton()->set_color(p_color, region);
 	}
+}
+
+// The buffer of a canvas group inside other ones, allocated when first needed. Unlike the backbuffer, it has no mipmaps.
+const RenderTarget::CanvasGroupBuffer *TextureStorage::_get_render_target_canvas_group_buffer(RenderTarget *rt, int p_level) {
+	ERR_FAIL_COND_V(p_level < 1, nullptr);
+	ERR_FAIL_COND_V(rt->size.x <= 0 || rt->size.y <= 0, nullptr);
+	while ((int)rt->canvas_group_buffers.size() < p_level) {
+		RenderTarget::CanvasGroupBuffer buffer;
+		glGenTextures(1, &buffer.color);
+		glBindTexture(GL_TEXTURE_2D, buffer.color);
+		glTexImage2D(GL_TEXTURE_2D, 0, rt->color_internal_format, rt->size.x, rt->size.y, 0, rt->color_format, rt->color_type, nullptr);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		GLES3::Utilities::get_singleton()->texture_allocated_data(buffer.color, rt->size.x * rt->size.y * 4, "Render target canvas group color texture");
+
+		glGenFramebuffers(1, &buffer.fbo);
+		glBindFramebuffer(GL_FRAMEBUFFER, buffer.fbo);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, buffer.color, 0);
+		GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+		if (status != GL_FRAMEBUFFER_COMPLETE) {
+			WARN_PRINT_ONCE("Cannot allocate RenderTarget canvas group buffer. Status: " + get_framebuffer_error(status));
+		}
+		glClearColor(0.0, 0.0, 0.0, 0.0);
+		glClear(GL_COLOR_BUFFER_BIT);
+		rt->canvas_group_buffers.push_back(buffer);
+	}
+	return &rt->canvas_group_buffers[p_level - 1];
+}
+
+GLuint TextureStorage::render_target_get_canvas_group_fbo(RID p_render_target, int p_level) {
+	RenderTarget *rt = render_target_owner.get_or_null(p_render_target);
+	ERR_FAIL_NULL_V(rt, 0);
+	if (p_level == 0) {
+		if (rt->backbuffer_fbo == 0) {
+			_create_render_target_backbuffer(rt);
+		}
+		return rt->backbuffer_fbo;
+	}
+	const RenderTarget::CanvasGroupBuffer *buffer = _get_render_target_canvas_group_buffer(rt, p_level);
+	return buffer ? buffer->fbo : 0;
+}
+
+GLuint TextureStorage::render_target_get_canvas_group_texture(RID p_render_target, int p_level) {
+	RenderTarget *rt = render_target_owner.get_or_null(p_render_target);
+	ERR_FAIL_NULL_V(rt, 0);
+	if (p_level == 0) {
+		if (rt->backbuffer_fbo == 0) {
+			_create_render_target_backbuffer(rt);
+		}
+		return rt->backbuffer;
+	}
+	const RenderTarget::CanvasGroupBuffer *buffer = _get_render_target_canvas_group_buffer(rt, p_level);
+	return buffer ? buffer->color : 0;
+}
+
+void TextureStorage::render_target_clear_canvas_group_buffer(RID p_render_target, int p_level) {
+	if (p_level == 0) {
+		render_target_clear_back_buffer(p_render_target, Rect2i(), Color(0, 0, 0, 0));
+		return;
+	}
+	glBindFramebuffer(GL_FRAMEBUFFER, render_target_get_canvas_group_fbo(p_render_target, p_level));
+	glClearColor(0.0, 0.0, 0.0, 0.0);
+	glClear(GL_COLOR_BUFFER_BIT);
+}
+
+void TextureStorage::render_target_copy_to_canvas_group_buffer(RID p_render_target, int p_level, const Rect2i &p_region) {
+	if (p_level == 0) {
+		render_target_copy_to_back_buffer(p_render_target, p_region, false);
+		return;
+	}
+	RenderTarget *rt = render_target_owner.get_or_null(p_render_target);
+	ERR_FAIL_NULL(rt);
+
+	const Rect2i region = Rect2i(Size2i(), rt->size).intersection(p_region);
+	if (region.size == Size2i()) {
+		return;
+	}
+	const GLuint source = render_target_get_canvas_group_texture(p_render_target, p_level - 1);
+	const GLuint fbo = render_target_get_canvas_group_fbo(p_render_target, p_level);
+
+	glDisable(GL_BLEND);
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, source);
+	Rect2 normalized_region = region;
+	normalized_region.position = normalized_region.position / Size2(rt->size);
+	normalized_region.size = normalized_region.size / Size2(rt->size);
+	GLES3::CopyEffects::get_singleton()->copy_to_and_from_rect(normalized_region);
+	glEnable(GL_BLEND); // 2D starts with blend enabled.
 }
 
 void TextureStorage::render_target_gen_back_buffer_mipmaps(RID p_render_target, const Rect2i &p_region) {
