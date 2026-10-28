@@ -718,6 +718,13 @@ void MenuBar::remove_child_notify(Node *p_child) {
 	update_minimum_size();
 }
 
+Rect2 MenuBar::_get_built_in_focus_rect() const {
+	if (focused_menu < 0 || focused_menu >= menu_cache.size() || menu_cache[focused_menu].hidden) {
+		return Control::_get_built_in_focus_rect();
+	}
+	return _get_menu_item_rect(focused_menu);
+}
+
 void MenuBar::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_switch_on_hover", "enable"), &MenuBar::set_switch_on_hover);
 	ClassDB::bind_method(D_METHOD("is_switch_on_hover"), &MenuBar::is_switch_on_hover);

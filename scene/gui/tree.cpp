@@ -1829,6 +1829,15 @@ void TreeItem::call_recursive(const StringName &p_method, const Variant **p_args
 	recursive_call_aux(this, p_method, p_args, p_argcount, r_error);
 }
 
+Rect2 Tree::_get_built_in_focus_rect() const {
+	if (!selected_item || selected_col < 0 || selected_col >= selected_item->cells.size()) {
+		return Control::_get_built_in_focus_rect();
+	}
+	// From the layout, as the rectangles cached while drawing lag behind a selection made since the last draw.
+	const Rect2 rect = get_item_rect(selected_item, select_mode == SELECT_ROW ? -1 : selected_col).intersection(_get_content_rect());
+	return rect.has_area() ? rect : Control::_get_built_in_focus_rect();
+}
+
 void TreeItem::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_cell_mode", "column", "mode"), &TreeItem::set_cell_mode);
 	ClassDB::bind_method(D_METHOD("get_cell_mode", "column"), &TreeItem::get_cell_mode);

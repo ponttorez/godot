@@ -231,6 +231,13 @@
 				Returns the index of the currently focused item. Returns [code]-1[/code] if no item is focused.
 			</description>
 		</method>
+		<method name="get_focused_item_rect" qualifiers="const">
+			<return type="Rect2" />
+			<description>
+				Returns the rectangle of the focused item (see [method get_focused_item]) in the coordinates of the menu's canvas, cut to the visible part of the list. Returns an empty [Rect2] when no item is focused.
+				[b]Note:[/b] For an embedded menu, add [member Window.position] to get the coordinates in the canvas of the viewport that embeds it, like for [method Control.get_visible_focus_rect].
+			</description>
+		</method>
 		<method name="get_item_accelerator" qualifiers="const">
 			<return type="int" enum="Key" />
 			<param index="0" name="index" type="int" />

@@ -818,6 +818,7 @@ private:
 	void _accessibility_update_item(Point2 &r_ofs, TreeItem *p_item, int &r_row, int p_level);
 
 protected:
+	virtual Rect2 _get_built_in_focus_rect() const override;
 	virtual void _update_theme_item_cache() override;
 
 	void _notification(int p_what);

@@ -202,6 +202,7 @@ private:
 	void _accessibility_action_focus(const Variant &p_data, int p_index);
 
 protected:
+	virtual Rect2 _get_built_in_focus_rect() const override;
 	virtual void gui_input(const Ref<InputEvent> &p_event) override;
 	virtual String get_tooltip(const Point2 &p_pos) const override;
 

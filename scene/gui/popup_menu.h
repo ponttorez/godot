@@ -388,6 +388,7 @@ public:
 
 	void set_focused_item(int p_idx);
 	int get_focused_item() const;
+	Rect2 get_focused_item_rect() const;
 
 	void set_item_count(int p_count);
 	int get_item_count() const;

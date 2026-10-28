@@ -139,6 +139,7 @@ class MenuBar : public Control {
 	void unbind_global_menu();
 
 protected:
+	virtual Rect2 _get_built_in_focus_rect() const override;
 	virtual void shortcut_input(const Ref<InputEvent> &p_event) override;
 
 	void _notification(int p_what);
