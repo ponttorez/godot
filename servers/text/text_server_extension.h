@@ -213,6 +213,11 @@ public:
 	GDVIRTUAL2(_font_set_modulate_color_glyphs, RID, bool);
 	GDVIRTUAL1RC(bool, _font_is_modulate_color_glyphs, RID);
 
+	virtual void font_set_outline_mode(const RID &p_font_rid, TextServer::FontOutlineMode p_mode) override;
+	virtual TextServer::FontOutlineMode font_get_outline_mode(const RID &p_font_rid) const override;
+	GDVIRTUAL2(_font_set_outline_mode, RID, TextServer::FontOutlineMode);
+	GDVIRTUAL1RC(TextServer::FontOutlineMode, _font_get_outline_mode, RID);
+
 	virtual int64_t font_get_palette_count(const RID &p_font_rid) const override;
 	GDVIRTUAL1RC(int64_t, _font_get_palette_count, const RID &);
 	virtual String font_get_palette_name(const RID &p_font_rid, int64_t p_index) const override;

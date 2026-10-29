@@ -279,6 +279,9 @@ void TextServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("font_set_modulate_color_glyphs", "font_rid", "modulate"), &TextServer::font_set_modulate_color_glyphs);
 	ClassDB::bind_method(D_METHOD("font_is_modulate_color_glyphs", "font_rid"), &TextServer::font_is_modulate_color_glyphs);
 
+	ClassDB::bind_method(D_METHOD("font_set_outline_mode", "font_rid", "mode"), &TextServer::font_set_outline_mode);
+	ClassDB::bind_method(D_METHOD("font_get_outline_mode", "font_rid"), &TextServer::font_get_outline_mode);
+
 	ClassDB::bind_method(D_METHOD("font_get_palette_count", "font_rid"), &TextServer::font_get_palette_count);
 	ClassDB::bind_method(D_METHOD("font_get_palette_name", "font_rid", "index"), &TextServer::font_get_palette_name);
 	ClassDB::bind_method(D_METHOD("font_get_palette_colors", "font_rid", "index"), &TextServer::font_get_palette_colors);
@@ -551,6 +554,10 @@ void TextServer::_bind_methods() {
 	BIND_ENUM_CONSTANT(FONT_ANTIALIASING_NONE);
 	BIND_ENUM_CONSTANT(FONT_ANTIALIASING_GRAY);
 	BIND_ENUM_CONSTANT(FONT_ANTIALIASING_LCD);
+
+	/* Font outline */
+	BIND_ENUM_CONSTANT(FONT_OUTLINE_MODE_SMOOTH);
+	BIND_ENUM_CONSTANT(FONT_OUTLINE_MODE_PIXEL);
 
 	BIND_ENUM_CONSTANT(FONT_LCD_SUBPIXEL_LAYOUT_NONE);
 	BIND_ENUM_CONSTANT(FONT_LCD_SUBPIXEL_LAYOUT_HRGB);

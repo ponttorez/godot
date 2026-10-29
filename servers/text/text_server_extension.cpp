@@ -115,6 +115,9 @@ void TextServerExtension::_bind_methods() {
 	GDVIRTUAL_BIND(_font_set_modulate_color_glyphs, "font_rid", "modulate");
 	GDVIRTUAL_BIND(_font_is_modulate_color_glyphs, "font_rid");
 
+	GDVIRTUAL_BIND(_font_set_outline_mode, "font_rid", "mode");
+	GDVIRTUAL_BIND(_font_get_outline_mode, "font_rid");
+
 	GDVIRTUAL_BIND(_font_get_palette_count, "font_rid");
 	GDVIRTUAL_BIND(_font_get_palette_name, "font_rid", "index");
 	GDVIRTUAL_BIND(_font_get_palette_colors, "font_rid", "index");
@@ -695,6 +698,16 @@ void TextServerExtension::font_set_modulate_color_glyphs(const RID &p_font_rid, 
 bool TextServerExtension::font_is_modulate_color_glyphs(const RID &p_font_rid) const {
 	bool ret = false;
 	GDVIRTUAL_CALL(_font_is_modulate_color_glyphs, p_font_rid, ret);
+	return ret;
+}
+
+void TextServerExtension::font_set_outline_mode(const RID &p_font_rid, TextServer::FontOutlineMode p_mode) {
+	GDVIRTUAL_CALL(_font_set_outline_mode, p_font_rid, p_mode);
+}
+
+TextServer::FontOutlineMode TextServerExtension::font_get_outline_mode(const RID &p_font_rid) const {
+	TextServer::FontOutlineMode ret = TextServer::FONT_OUTLINE_MODE_SMOOTH;
+	GDVIRTUAL_CALL(_font_get_outline_mode, p_font_rid, ret);
 	return ret;
 }
 

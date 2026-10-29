@@ -54,6 +54,11 @@ public:
 		FONT_ANTIALIASING_LCD,
 	};
 
+	enum FontOutlineMode {
+		FONT_OUTLINE_MODE_SMOOTH,
+		FONT_OUTLINE_MODE_PIXEL,
+	};
+
 	enum FontLCDSubpixelLayout {
 		FONT_LCD_SUBPIXEL_LAYOUT_NONE,
 		FONT_LCD_SUBPIXEL_LAYOUT_HRGB,
@@ -331,6 +336,9 @@ public:
 
 	virtual void font_set_modulate_color_glyphs(const RID &p_font_rid, bool p_modulate) = 0;
 	virtual bool font_is_modulate_color_glyphs(const RID &p_font_rid) const = 0;
+
+	virtual void font_set_outline_mode(const RID &p_font_rid, FontOutlineMode p_mode) {}
+	virtual FontOutlineMode font_get_outline_mode(const RID &p_font_rid) const { return FONT_OUTLINE_MODE_SMOOTH; }
 
 	virtual int64_t font_get_palette_count(const RID &p_font_rid) const = 0;
 	virtual String font_get_palette_name(const RID &p_font_rid, int64_t p_index) const = 0;
@@ -719,6 +727,7 @@ VARIANT_ENUM_CAST(TextServer::SpacingType);
 VARIANT_BITFIELD_CAST(TextServer::FontStyle);
 VARIANT_ENUM_CAST(TextServer::StructuredTextParser);
 VARIANT_ENUM_CAST(TextServer::FontAntialiasing);
+VARIANT_ENUM_CAST(TextServer::FontOutlineMode);
 VARIANT_ENUM_CAST(TextServer::FontLCDSubpixelLayout);
 VARIANT_ENUM_CAST(TextServer::FixedSizeScaleMode);
 

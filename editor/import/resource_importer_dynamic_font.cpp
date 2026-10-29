@@ -83,6 +83,9 @@ bool ResourceImporterDynamicFont::get_option_visibility(const String &p_path, co
 	if (p_option == "antialiasing" && bool(p_options["multichannel_signed_distance_field"])) {
 		return false;
 	}
+	if (p_option == "outline_mode" && bool(p_options["multichannel_signed_distance_field"])) {
+		return false;
+	}
 	if (p_option == "oversampling" && bool(p_options["multichannel_signed_distance_field"])) {
 		return false;
 	}
@@ -116,6 +119,7 @@ void ResourceImporterDynamicFont::get_import_options(const String &p_path, List<
 	r_options->push_back(ImportOption(PropertyInfo(Variant::NIL, "Rendering", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_GROUP), Variant()));
 
 	r_options->push_back(ImportOption(PropertyInfo(Variant::INT, "antialiasing", PROPERTY_HINT_ENUM, "None,Grayscale,LCD Subpixel"), 1));
+	r_options->push_back(ImportOption(PropertyInfo(Variant::INT, "outline_mode", PROPERTY_HINT_ENUM, "Smooth,Pixel"), 0));
 	r_options->push_back(ImportOption(PropertyInfo(Variant::BOOL, "generate_mipmaps"), false));
 	r_options->push_back(ImportOption(PropertyInfo(Variant::BOOL, "disable_embedded_bitmaps"), true));
 	r_options->push_back(ImportOption(PropertyInfo(Variant::BOOL, "multichannel_signed_distance_field", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_UPDATE_ALL_IF_MODIFIED), (msdf) ? true : false));
@@ -154,6 +158,7 @@ Error ResourceImporterDynamicFont::import(ResourceUID::ID p_source_id, const Str
 	print_verbose("Importing dynamic font from: " + p_source_file);
 
 	int antialiasing = p_options["antialiasing"];
+	int outline_mode = p_options.has("outline_mode") ? int(p_options["outline_mode"]) : 0;
 	bool generate_mipmaps = p_options["generate_mipmaps"];
 	bool disable_embedded_bitmaps = p_options["disable_embedded_bitmaps"];
 	bool msdf = p_options["multichannel_signed_distance_field"];
@@ -178,6 +183,7 @@ Error ResourceImporterDynamicFont::import(ResourceUID::ID p_source_id, const Str
 	font.instantiate();
 	font->set_data(data);
 	font->set_antialiasing((TextServer::FontAntialiasing)antialiasing);
+	font->set_outline_mode((TextServer::FontOutlineMode)outline_mode);
 	font->set_disable_embedded_bitmaps(disable_embedded_bitmaps);
 	font->set_generate_mipmaps(generate_mipmaps);
 	font->set_multichannel_signed_distance_field(msdf);

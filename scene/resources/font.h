@@ -204,6 +204,7 @@ class FontFile : public Font {
 	TextServer::FixedSizeScaleMode fixed_size_scale_mode = TextServer::FIXED_SIZE_SCALE_DISABLE;
 	bool force_autohinter = false;
 	bool modulate_color_glyphs = false;
+	TextServer::FontOutlineMode outline_mode = TextServer::FONT_OUTLINE_MODE_SMOOTH;
 	bool allow_system_fallback = true;
 	TextServer::Hinting hinting = TextServer::HINTING_LIGHT;
 	TextServer::SubpixelPositioning subpixel_positioning = TextServer::SUBPIXEL_POSITIONING_AUTO;
@@ -291,6 +292,9 @@ public:
 
 	virtual void set_modulate_color_glyphs(bool p_modulate);
 	virtual bool is_modulate_color_glyphs() const;
+
+	virtual void set_outline_mode(TextServer::FontOutlineMode p_mode);
+	virtual TextServer::FontOutlineMode get_outline_mode() const;
 
 	virtual void set_hinting(TextServer::Hinting p_hinting);
 	virtual TextServer::Hinting get_hinting() const;
@@ -508,6 +512,7 @@ class SystemFont : public Font {
 	bool disable_embedded_bitmaps = true;
 	bool force_autohinter = false;
 	bool modulate_color_glyphs = false;
+	TextServer::FontOutlineMode outline_mode = TextServer::FONT_OUTLINE_MODE_SMOOTH;
 	bool allow_system_fallback = true;
 	TextServer::Hinting hinting = TextServer::HINTING_LIGHT;
 	TextServer::SubpixelPositioning subpixel_positioning = TextServer::SUBPIXEL_POSITIONING_AUTO;
@@ -546,6 +551,9 @@ public:
 
 	virtual void set_modulate_color_glyphs(bool p_modulate);
 	virtual bool is_modulate_color_glyphs() const;
+
+	virtual void set_outline_mode(TextServer::FontOutlineMode p_mode);
+	virtual TextServer::FontOutlineMode get_outline_mode() const;
 
 	virtual void set_hinting(TextServer::Hinting p_hinting);
 	virtual TextServer::Hinting get_hinting() const;
