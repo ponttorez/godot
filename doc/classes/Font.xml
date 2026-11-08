@@ -127,6 +127,8 @@
 			<param index="8" name="baseline_offset" type="float" default="0.0" />
 			<param index="9" name="palette_index" type="int" default="0" />
 			<param index="10" name="custom_colors" type="PackedColorArray" default="PackedColorArray()" />
+			<param index="11" name="spacing_left" type="int" default="0" />
+			<param index="12" name="spacing_right" type="int" default="0" />
 			<description>
 				Returns [TextServer] RID of the font cache for specific variation.
 			</description>

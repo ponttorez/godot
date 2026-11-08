@@ -3038,7 +3038,7 @@ double TextServerAdvanced::_font_get_embolden(const RID &p_font_rid) const {
 }
 
 void TextServerAdvanced::_font_set_spacing(const RID &p_font_rid, SpacingType p_spacing, int64_t p_value) {
-	ERR_FAIL_INDEX((int)p_spacing, 4);
+	ERR_FAIL_INDEX((int)p_spacing, SPACING_MAX);
 	FontAdvancedLinkedVariation *fdv = font_var_owner.get_or_null(p_font_rid);
 	if (fdv) {
 		if (fdv->extra_spacing[p_spacing] != p_value) {
@@ -3056,7 +3056,7 @@ void TextServerAdvanced::_font_set_spacing(const RID &p_font_rid, SpacingType p_
 }
 
 int64_t TextServerAdvanced::_font_get_spacing(const RID &p_font_rid, SpacingType p_spacing) const {
-	ERR_FAIL_INDEX_V((int)p_spacing, 4, 0);
+	ERR_FAIL_INDEX_V((int)p_spacing, SPACING_MAX, 0);
 	FontAdvancedLinkedVariation *fdv = font_var_owner.get_or_null(p_font_rid);
 	if (fdv) {
 		return fdv->extra_spacing[p_spacing];
@@ -5061,7 +5061,7 @@ bool TextServerAdvanced::_shaped_text_get_preserve_control(const RID &p_shaped) 
 }
 
 void TextServerAdvanced::_shaped_text_set_spacing(const RID &p_shaped, SpacingType p_spacing, int64_t p_value) {
-	ERR_FAIL_INDEX((int)p_spacing, 4);
+	ERR_FAIL_INDEX((int)p_spacing, SPACING_MAX);
 	ShapedTextDataAdvanced *sd = shaped_owner.get_or_null(p_shaped);
 	ERR_FAIL_NULL(sd);
 
@@ -5076,7 +5076,7 @@ void TextServerAdvanced::_shaped_text_set_spacing(const RID &p_shaped, SpacingTy
 }
 
 int64_t TextServerAdvanced::_shaped_text_get_spacing(const RID &p_shaped, SpacingType p_spacing) const {
-	ERR_FAIL_INDEX_V((int)p_spacing, 4, 0);
+	ERR_FAIL_INDEX_V((int)p_spacing, SPACING_MAX, 0);
 
 	const ShapedTextDataAdvanced *sd = shaped_owner.get_or_null(p_shaped);
 	ERR_FAIL_NULL_V(sd, 0);
@@ -5460,6 +5460,7 @@ bool TextServerAdvanced::_shaped_text_resize_object(const RID &p_shaped, const V
 
 	MutexLock lock(sd->mutex);
 	ERR_FAIL_COND_V(!sd->objects.has(p_key), false);
+	Size2 old_size = sd->objects[p_key].rect.size;
 	sd->objects[p_key].rect.size = p_size;
 	sd->objects[p_key].inline_align = p_inline_align;
 	sd->objects[p_key].baseline = p_baseline;
@@ -5489,15 +5490,10 @@ bool TextServerAdvanced::_shaped_text_resize_object(const RID &p_shaped, const V
 				key = spans[gl.span_index + sd->first_span].embedded_key;
 			}
 			if (key != Variant()) {
-				if (sd->orientation == ORIENTATION_HORIZONTAL) {
-					sd->objects[key].rect.position.x = sd->width;
-					sd->width += sd->objects[key].rect.size.x;
-					sd->glyphs[i].advance = sd->objects[key].rect.size.x;
-				} else {
-					sd->objects[key].rect.position.y = sd->width;
-					sd->width += sd->objects[key].rect.size.y;
-					sd->glyphs[i].advance = sd->objects[key].rect.size.y;
+				if (key == p_key) {
+					sd->glyphs[i].advance += (sd->orientation == ORIENTATION_HORIZONTAL) ? (p_size.x - old_size.x) : (p_size.y - old_size.y);
 				}
+				sd->width += sd->glyphs[i].advance;
 			} else {
 				if (gl.font_rid.is_valid()) {
 					if (sd->orientation == ORIENTATION_HORIZONTAL) {
@@ -5524,9 +5520,135 @@ bool TextServerAdvanced::_shaped_text_resize_object(const RID &p_shaped, const V
 		}
 		sd->sort_valid = false;
 		sd->glyphs_logical.clear();
+		_place_objects(sd, spans);
 		_realign(sd);
 	}
 	return true;
+}
+
+RID TextServerAdvanced::_main_font(const ShapedTextDataAdvanced *p_root) const {
+	for (const ShapedTextDataAdvanced::Span &span : p_root->spans) {
+		if (!span.fonts.is_empty()) {
+			return span.fonts[0];
+		}
+	}
+	return RID();
+}
+
+double TextServerAdvanced::_main_spacing(const ShapedTextDataAdvanced *p_root, SpacingType p_spacing) const {
+	double spacing = p_root->extra_spacing[p_spacing];
+	RID font = _main_font(p_root);
+	if (font.is_valid()) {
+		spacing += _font_get_spacing(font, p_spacing);
+	}
+	return spacing;
+}
+
+double TextServerAdvanced::_glyph_extra_spacing(const ShapedTextDataAdvanced *p_root, const Glyph &p_glyph) const {
+	// Spacing added after a glyph when the text was shaped, see _shape_run() and _add_object_spacing().
+	if ((p_glyph.flags & GRAPHEME_IS_EMBEDDED_OBJECT) == GRAPHEME_IS_EMBEDDED_OBJECT) {
+		return _main_spacing(p_root, SPACING_GLYPH);
+	}
+	if (!p_glyph.font_rid.is_valid() || Math::is_zero_approx(p_glyph.advance)) {
+		return 0.0;
+	}
+	int pos = p_glyph.start - p_root->start;
+	if (pos < 0 || pos >= p_root->text.length()) {
+		return 0.0;
+	}
+	double sp_sp = p_root->extra_spacing[SPACING_SPACE] + _font_get_spacing(p_glyph.font_rid, SPACING_SPACE);
+	if (sp_sp && is_whitespace(p_root->text[pos])) {
+		return sp_sp;
+	}
+	return p_root->extra_spacing[SPACING_GLYPH] + _font_get_spacing(p_glyph.font_rid, SPACING_GLYPH);
+}
+
+int TextServerAdvanced::_last_advancing_glyph(const ShapedTextDataAdvanced *p_sd) const {
+	for (int i = (int)p_sd->glyphs.size() - 1; i >= 0; i--) {
+		if (!Math::is_zero_approx(p_sd->glyphs[i].advance)) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+void TextServerAdvanced::_add_object_spacing(ShapedTextDataAdvanced *p_sd) const {
+	// Embedded objects are separated from their neighbors like glyphs, except after the last element of the text.
+	double spacing = _main_spacing(p_sd, SPACING_GLYPH);
+	if (Math::is_zero_approx(spacing)) {
+		return;
+	}
+	int last = _last_advancing_glyph(p_sd);
+	for (int i = 0; i < (int)p_sd->glyphs.size(); i++) {
+		Glyph &gl = p_sd->glyphs[i];
+		if ((gl.flags & GRAPHEME_IS_EMBEDDED_OBJECT) == GRAPHEME_IS_EMBEDDED_OBJECT && i != last) {
+			gl.advance += spacing;
+			p_sd->width += spacing;
+		}
+	}
+}
+
+void TextServerAdvanced::_apply_line_spacing(ShapedTextDataAdvanced *p_sd, const ShapedTextDataAdvanced *p_root) const {
+	p_sd->edge_first_glyph = -1;
+	p_sd->edge_last_glyph = -1;
+	p_sd->edge_left = 0.0;
+	p_sd->edge_right = 0.0;
+	if (p_sd->glyphs.is_empty()) {
+		return;
+	}
+	Glyph *gl = p_sd->glyphs.ptr();
+	int last = _last_advancing_glyph(p_sd);
+	if (last < 0) {
+		return;
+	}
+	if (p_sd != p_root) {
+		// A line ends here, so the spacing after its last element separates it from nothing.
+		int root_last = _last_advancing_glyph(p_root);
+		bool ends_text = false;
+		if (root_last >= 0) {
+			const Glyph &rl = p_root->glyphs[root_last];
+			ends_text = (gl[last].start == rl.start) && (gl[last].end == rl.end) && (gl[last].index == rl.index) && (gl[last].flags == rl.flags);
+		}
+		if (!ends_text) {
+			double trailing = _glyph_extra_spacing(p_root, gl[last]);
+			gl[last].advance -= trailing;
+			p_sd->width -= trailing;
+		}
+	}
+	double left = _main_spacing(p_root, SPACING_LEFT);
+	double right = _main_spacing(p_root, SPACING_RIGHT);
+	gl[last].advance += right;
+	gl[0].advance += left;
+	if (p_sd->orientation == ORIENTATION_HORIZONTAL) {
+		gl[0].x_off += left;
+	} else {
+		gl[0].y_off += left;
+	}
+	p_sd->width += left + right;
+	p_sd->edge_first_glyph = 0;
+	p_sd->edge_last_glyph = last;
+	p_sd->edge_left = left;
+	p_sd->edge_right = right;
+}
+
+void TextServerAdvanced::_place_objects(ShapedTextDataAdvanced *p_sd, const Vector<ShapedTextDataAdvanced::Span> &p_spans) const {
+	double pen = 0.0;
+	int span_size = p_spans.size();
+	for (int i = 0; i < (int)p_sd->glyphs.size(); i++) {
+		const Glyph &gl = p_sd->glyphs[i];
+		if ((gl.flags & GRAPHEME_IS_EMBEDDED_OBJECT) == GRAPHEME_IS_EMBEDDED_OBJECT && gl.span_index + p_sd->first_span >= 0 && gl.span_index + p_sd->first_span < span_size) {
+			Variant key = p_spans[gl.span_index + p_sd->first_span].embedded_key;
+			if (key != Variant() && p_sd->objects.has(key)) {
+				double lead = (i == p_sd->edge_first_glyph) ? p_sd->edge_left : 0.0;
+				if (p_sd->orientation == ORIENTATION_HORIZONTAL) {
+					p_sd->objects[key].rect.position.x = pen + lead;
+				} else {
+					p_sd->objects[key].rect.position.y = pen + lead;
+				}
+			}
+		}
+		pen += gl.advance * gl.repeat;
+	}
 }
 
 void TextServerAdvanced::_realign(ShapedTextDataAdvanced *p_sd) const {
@@ -5769,6 +5891,17 @@ bool TextServerAdvanced::_shape_substr(ShapedTextDataAdvanced *p_new_sd, const S
 					if ((sd_glyphs[j].start >= bidi_run_start) && (sd_glyphs[j].end <= bidi_run_end - col_key_off)) {
 						// Copy glyphs.
 						Glyph gl = sd_glyphs[j];
+						if (j == p_sd->edge_first_glyph) {
+							gl.advance -= p_sd->edge_left;
+							if (p_new_sd->orientation == ORIENTATION_HORIZONTAL) {
+								gl.x_off -= p_sd->edge_left;
+							} else {
+								gl.y_off -= p_sd->edge_left;
+							}
+						}
+						if (j == p_sd->edge_last_glyph) {
+							gl.advance -= p_sd->edge_right;
+						}
 						if (gl.span_index >= 0) {
 							gl.span_index -= p_new_sd->first_span;
 						}
@@ -5803,15 +5936,8 @@ bool TextServerAdvanced::_shape_substr(ShapedTextDataAdvanced *p_new_sd, const S
 						if ((gl.flags & GRAPHEME_IS_EMBEDDED_OBJECT) == GRAPHEME_IS_EMBEDDED_OBJECT && gl.span_index + p_new_sd->first_span >= 0 && gl.span_index + p_new_sd->first_span < span_size) {
 							Variant key = p_sd->spans[gl.span_index + p_new_sd->first_span].embedded_key;
 							if (key != Variant()) {
-								ShapedTextDataAdvanced::EmbeddedObject obj = p_sd->objects[key];
-								if (p_new_sd->orientation == ORIENTATION_HORIZONTAL) {
-									obj.rect.position.x = p_new_sd->width;
-									p_new_sd->width += obj.rect.size.x;
-								} else {
-									obj.rect.position.y = p_new_sd->width;
-									p_new_sd->width += obj.rect.size.y;
-								}
-								p_new_sd->objects[key] = obj;
+								p_new_sd->objects[key] = p_sd->objects[key];
+								p_new_sd->width += gl.advance;
 							}
 						} else {
 							if (gl.font_rid.is_valid()) {
@@ -5856,6 +5982,8 @@ bool TextServerAdvanced::_shape_substr(ShapedTextDataAdvanced *p_new_sd, const S
 			}
 		}
 
+		_apply_line_spacing(p_new_sd, p_sd);
+		_place_objects(p_new_sd, p_sd->spans);
 		_realign(p_new_sd);
 	}
 	p_new_sd->valid.set();
@@ -6256,6 +6384,8 @@ RID TextServerAdvanced::_find_sys_font_for_text(const RID &p_fdef, const String 
 			_font_set_spacing(sysf.rid, SPACING_BOTTOM, key.extra_spacing[SPACING_BOTTOM]);
 			_font_set_spacing(sysf.rid, SPACING_SPACE, key.extra_spacing[SPACING_SPACE]);
 			_font_set_spacing(sysf.rid, SPACING_GLYPH, key.extra_spacing[SPACING_GLYPH]);
+			_font_set_spacing(sysf.rid, SPACING_LEFT, key.extra_spacing[SPACING_LEFT]);
+			_font_set_spacing(sysf.rid, SPACING_RIGHT, key.extra_spacing[SPACING_RIGHT]);
 
 			if (system_fonts.has(key)) {
 				system_fonts[key].var.push_back(sysf);
@@ -7745,6 +7875,9 @@ bool TextServerAdvanced::_shaped_text_shape(const RID &p_shaped) {
 		}
 	}
 
+	_add_object_spacing(sd);
+	_apply_line_spacing(sd, sd);
+	_place_objects(sd, sd->spans);
 	_realign(sd);
 	sd->valid.set();
 	return sd->valid.is_set();

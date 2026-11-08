@@ -62,7 +62,13 @@
 			Extra spacing at the bottom of the line in pixels.
 		</member>
 		<member name="spacing_glyph" type="int" setter="set_spacing" getter="get_spacing" default="0">
-			Extra spacing between graphical glyphs.
+			Extra spacing between neighboring elements of a line in pixels: between glyphs, and between a glyph or an inline image and the next element. It is not added after the last element of a line. Inline images use the spacing of the main font of the text.
+		</member>
+		<member name="spacing_left" type="int" setter="set_spacing" getter="get_spacing" default="0">
+			Extra spacing at the start of each line in pixels, before its first glyph or inline image. Wrapped lines get it too. Use it with [member spacing_right] to give text room for an outline drawn around it.
+		</member>
+		<member name="spacing_right" type="int" setter="set_spacing" getter="get_spacing" default="0">
+			Extra spacing at the end of each line in pixels, after its last glyph or inline image.
 		</member>
 		<member name="spacing_space" type="int" setter="set_spacing" getter="get_spacing" default="0">
 			Extra width of the space glyphs.
