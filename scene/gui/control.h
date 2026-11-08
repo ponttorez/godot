@@ -362,6 +362,8 @@ private:
 		AutoTranslateMode tooltip_auto_translate_mode = AUTO_TRANSLATE_MODE_INHERIT;
 		bool tooltip_bbcode_enabled = false;
 
+		bool text_effects_animated = false;
+
 	} data;
 
 	// Dynamic properties.
@@ -446,6 +448,8 @@ private:
 
 	static int root_layout_direction;
 
+	void _text_effects_frame();
+
 protected:
 	// Called when the control starts or stops receiving input, from its interactable property or a parent.
 	virtual void _interactable_changed() {}
@@ -467,6 +471,9 @@ protected:
 	// Theming.
 
 	virtual void _update_theme_item_cache();
+
+	// Text effects, see set_text_effects_animated().
+	virtual void _process_text_effects(double p_delta) {}
 
 	// Internationalization.
 
@@ -930,6 +937,12 @@ public:
 	virtual Control *make_custom_tooltip(const String &p_text) const;
 
 	virtual String accessibility_get_contextual_info() const;
+
+	// Text effects.
+
+	// While animated, _process_text_effects() is called every frame the control is visible and can process, and the
+	// control is redrawn. Controls that draw BBCode text with effects animate them while drawing it, see BBCodeText.
+	void set_text_effects_animated(bool p_animated);
 
 	Control();
 	~Control();

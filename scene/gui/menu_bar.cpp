@@ -521,6 +521,9 @@ void MenuBar::_draw_menu_item(int p_index) {
 		draw_style.outline_size = outline_size;
 		draw_style.outline_color = font_outline_color;
 		menu_cache[p_index].bbcode->draw_at(ci, text_ofs, draw_style);
+		if (menu_cache[p_index].bbcode->has_effects()) {
+			set_text_effects_animated(true);
+		}
 		return;
 	}
 	if (outline_size > 0 && font_outline_color.a > 0) {
@@ -557,6 +560,19 @@ void MenuBar::shape(Menu &p_menu) {
 Size2 MenuBar::_get_menu_text_size(int p_index) const {
 	const Menu &menu = menu_cache[p_index];
 	return (bbcode_enabled && menu.bbcode.is_valid()) ? menu.bbcode->get_size() : menu.text_buf->get_size();
+}
+
+void MenuBar::_process_text_effects(double p_delta) {
+	bool animated = false;
+	for (const Menu &menu : menu_cache) {
+		if (menu.bbcode.is_valid() && menu.bbcode->has_effects()) {
+			menu.bbcode->process_effects(p_delta);
+			animated = true;
+		}
+	}
+	if (!animated) {
+		set_text_effects_animated(false);
+	}
 }
 
 void MenuBar::set_bbcode_enabled(bool p_enabled) {

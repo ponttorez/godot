@@ -423,6 +423,7 @@ private:
 		Rect2i subwindow_resize_from_rect;
 
 		Vector<SubWindow> sub_windows; // Don't obtain references or pointers to the elements, as their location can change.
+		bool sub_window_titles_animated = false;
 	} gui;
 
 	DefaultCanvasItemTextureFilter default_canvas_item_texture_filter = DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_LINEAR;
@@ -497,6 +498,8 @@ private:
 	void _sub_window_update_order();
 	void _sub_window_register(Window *p_window);
 	void _sub_window_update(Window *p_window);
+	void _set_sub_window_titles_animated(bool p_animated);
+	void _animate_sub_window_titles();
 	void _sub_window_grab_focus(Window *p_window);
 	void _sub_window_remove(Window *p_window);
 	int _sub_window_find(Window *p_window) const;

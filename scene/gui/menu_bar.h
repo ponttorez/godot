@@ -149,6 +149,7 @@ protected:
 	virtual void shortcut_input(const Ref<InputEvent> &p_event) override;
 
 	void _notification(int p_what);
+	virtual void _process_text_effects(double p_delta) override;
 	virtual void add_child_notify(Node *p_child) override;
 	virtual void move_child_notify(Node *p_child) override;
 	virtual void remove_child_notify(Node *p_child) override;

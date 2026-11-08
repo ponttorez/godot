@@ -47,6 +47,7 @@ public:
 	Point2 offset;
 	Color color;
 	double elapsed_time = 0.0f;
+	double appear_time = 0.0;
 	Dictionary environment;
 	uint32_t glyph_index = 0;
 	uint16_t glyph_flags = 0;
@@ -65,6 +66,9 @@ public:
 
 	double get_elapsed_time() { return elapsed_time; }
 	void set_elapsed_time(double p_elapsed_time) { elapsed_time = p_elapsed_time; }
+
+	double get_appear_time() const { return appear_time; }
+	void set_appear_time(double p_appear_time) { appear_time = p_appear_time; }
 
 	bool is_visible() { return visibility; }
 	void set_visibility(bool p_visibility) { visibility = p_visibility; }

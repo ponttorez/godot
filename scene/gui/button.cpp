@@ -480,6 +480,7 @@ void Button::_notification(int p_what) {
 					draw_style.outline_size = outline_size;
 					draw_style.outline_color = font_outline_color;
 					bbcode->draw_at(ci, text_ofs, draw_style, &bbcode_rect);
+					set_text_effects_animated(bbcode->has_effects());
 					break;
 				}
 				if (outline_size > 0 && font_outline_color.a > 0.0f) {
@@ -488,6 +489,12 @@ void Button::_notification(int p_what) {
 				text_buf->draw(ci, text_ofs, font_color);
 			}
 		} break;
+	}
+}
+
+void Button::_process_text_effects(double p_delta) {
+	if (bbcode_enabled) {
+		bbcode->process_effects(p_delta);
 	}
 }
 
@@ -691,6 +698,7 @@ void Button::set_bbcode_enabled(bool p_enabled) {
 		bbcode.instantiate();
 	} else {
 		bbcode = Ref<BBCodeText>();
+		set_text_effects_animated(false);
 	}
 	_shape();
 	_bbcode_enabled_changed();

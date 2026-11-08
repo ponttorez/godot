@@ -357,6 +357,40 @@ void Viewport::_sub_window_register(Window *p_window) {
 	RenderingServer::get_singleton()->viewport_set_parent_viewport(p_window->viewport, viewport);
 }
 
+void Viewport::_set_sub_window_titles_animated(bool p_animated) {
+	if (gui.sub_window_titles_animated == p_animated || (p_animated && !is_inside_tree())) {
+		return;
+	}
+	gui.sub_window_titles_animated = p_animated;
+	const Callable frame = callable_mp(this, &Viewport::_animate_sub_window_titles);
+	if (p_animated) {
+		get_tree()->connect(SNAME("process_frame"), frame);
+	} else if (is_inside_tree() && get_tree()->is_connected(SNAME("process_frame"), frame)) {
+		get_tree()->disconnect(SNAME("process_frame"), frame);
+	}
+}
+
+// Advances the effects of the titles of the embedded windows, which are drawn by the embedder.
+void Viewport::_animate_sub_window_titles() {
+	LocalVector<Window *> windows;
+	for (const SubWindow &sw : gui.sub_windows) {
+		const Ref<BBCodeText> &title_bbcode = sw.window->title_bbcode;
+		if (title_bbcode.is_valid() && title_bbcode->has_effects() && sw.window->is_visible()) {
+			windows.push_back(sw.window);
+		}
+	}
+	if (windows.is_empty()) {
+		_set_sub_window_titles_animated(false); // Animated again when drawn.
+		return;
+	}
+	for (Window *window : windows) {
+		if (window->can_process()) {
+			window->title_bbcode->process_effects(get_process_delta_time());
+			_sub_window_update(window);
+		}
+	}
+}
+
 void Viewport::_sub_window_update(Window *p_window) {
 	int index = _sub_window_find(p_window);
 
@@ -403,6 +437,9 @@ void Viewport::_sub_window_update(Window *p_window) {
 			draw_style.outline_color = p_window->theme_cache.title_outline_modulate;
 			const Point2 title_pos = Point2((r.size.width - title_size.x) / 2, (-title_height - title_size.y) / 2);
 			title_bbcode->draw(sw.canvas_item, Rect2(r.position + title_pos.floor(), title_size), VERTICAL_ALIGNMENT_TOP, draw_style);
+			if (title_bbcode->has_effects()) {
+				_set_sub_window_titles_animated(true);
+			}
 		} else if (title_space > 0) {
 			TextLine title_text = TextLine(p_window->get_displayed_title(), title_font, font_size);
 			title_text.set_width(title_space);
@@ -683,6 +720,7 @@ void Viewport::_notification(int p_what) {
 
 		case NOTIFICATION_EXIT_TREE: {
 			_gui_cancel_tooltip();
+			_set_sub_window_titles_animated(false);
 
 			RenderingServer::get_singleton()->viewport_set_scenario(viewport, RID());
 			RenderingServer::get_singleton()->viewport_remove_canvas(viewport, current_canvas);

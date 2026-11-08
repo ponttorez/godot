@@ -54,11 +54,6 @@
 #include "servers/display/display_server.h"
 #include "servers/rendering/rendering_server.h"
 
-#include "modules/modules_enabled.gen.h" // For regex.
-#ifdef MODULE_REGEX_ENABLED
-#include "modules/regex/regex.h"
-#endif
-
 RichTextLabel::ItemDropcap::~ItemDropcap() {
 	if (font.is_valid()) {
 		RichTextLabel *owner_rtl = ObjectDB::get_instance<RichTextLabel>(owner);
@@ -8099,60 +8094,7 @@ Ref<RichTextEffect> RichTextLabel::_get_custom_effect_by_code(String p_bbcode_id
 }
 
 Dictionary RichTextLabel::parse_expressions_for_values(Vector<String> p_expressions) {
-	Dictionary d;
-	for (int i = 0; i < p_expressions.size(); i++) {
-		Array a;
-		Vector<String> parts = p_expressions[i].split("=", true);
-		const String &key = parts[0];
-		if (parts.size() != 2) {
-			return d;
-		}
-
-		Vector<String> values = parts[1].split(",", false);
-
-#ifdef MODULE_REGEX_ENABLED
-		RegEx color = RegEx();
-		color.compile("^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$");
-		RegEx nodepath = RegEx();
-		nodepath.compile("^\\$");
-		RegEx boolean = RegEx();
-		boolean.compile("^(true|false)$");
-		RegEx numerical = RegEx();
-		numerical.compile("^[-+]?\\d+$");
-		RegEx decimal = RegEx();
-		decimal.compile("^[+-]?\\d*(\\.\\d*)?([eE][+-]?\\d+)?$");
-
-		for (int j = 0; j < values.size(); j++) {
-			if (color.search(values[j]).is_valid()) {
-				a.append(Color::html(values[j]));
-			} else if (nodepath.search(values[j]).is_valid()) {
-				if (values[j].begins_with("$")) {
-					String v = values[j].substr(1);
-					a.append(NodePath(v));
-				}
-			} else if (boolean.search(values[j]).is_valid()) {
-				if (values[j] == "true") {
-					a.append(true);
-				} else if (values[j] == "false") {
-					a.append(false);
-				}
-			} else if (numerical.search(values[j]).is_valid()) {
-				a.append(values[j].to_int());
-			} else if (decimal.search(values[j]).is_valid()) {
-				a.append(values[j].to_float());
-			} else {
-				a.append(values[j]);
-			}
-		}
-#endif
-
-		if (values.size() > 1) {
-			d[key] = a;
-		} else if (values.size() == 1) {
-			d[key] = a[0];
-		}
-	}
-	return d;
+	return BBCodeParser::parse_effect_environment(p_expressions);
 }
 
 RichTextLabel::RichTextLabel(const String &p_text) {

@@ -600,6 +600,10 @@ private:
 	void update_column(int p_col);
 	void update_item_cell(TreeItem *p_item, int p_col) const;
 	void update_item_cache(TreeItem *p_item) const;
+	// The drawn texts with effects, animated until the next draw.
+	mutable LocalVector<Ref<BBCodeText>> drawn_text_effects;
+	void _add_drawn_text_effects(const Ref<BBCodeText> &p_bbcode) const;
+
 	void draw_item_rect(const TreeItem::Cell &p_cell, const Rect2i &p_rect, const Color &p_color, const Color &p_icon_color, int p_ol_size, const Color &p_ol_color) const;
 	int draw_item(const Point2i &p_pos, const Point2 &p_draw_ofs, const Size2 &p_draw_size, TreeItem *p_item, int &r_self_height);
 	void select_single_item(TreeItem *p_selected, TreeItem *p_current, int p_col, TreeItem *p_prev = nullptr, bool *r_in_range = nullptr, bool p_force_deselect = false);
@@ -833,6 +837,7 @@ protected:
 	virtual void _update_theme_item_cache() override;
 
 	void _notification(int p_what);
+	virtual void _process_text_effects(double p_delta) override;
 	virtual void _interactable_changed() override;
 	static void _bind_methods();
 

@@ -2202,6 +2202,22 @@ Rect2i Tree::convert_rtl_rect(const Rect2i &p_rect) const {
 	return p_rect;
 }
 
+void Tree::_add_drawn_text_effects(const Ref<BBCodeText> &p_bbcode) const {
+	if (p_bbcode.is_valid() && p_bbcode->has_effects() && !drawn_text_effects.has(p_bbcode)) {
+		drawn_text_effects.push_back(p_bbcode);
+	}
+}
+
+void Tree::_process_text_effects(double p_delta) {
+	if (drawn_text_effects.is_empty()) {
+		set_text_effects_animated(false);
+		return;
+	}
+	for (const Ref<BBCodeText> &bbcode : drawn_text_effects) {
+		bbcode->process_effects(p_delta);
+	}
+}
+
 void Tree::draw_item_rect(const TreeItem::Cell &p_cell, const Rect2i &p_rect, const Color &p_color, const Color &p_icon_color, int p_ol_size, const Color &p_ol_color) const {
 	ERR_FAIL_COND(theme_cache.font.is_null());
 
@@ -2249,6 +2265,7 @@ void Tree::draw_item_rect(const TreeItem::Cell &p_cell, const Rect2i &p_rect, co
 			Point2 draw_pos = rect.position;
 			draw_pos.y += Math::floor((rect.size.y - p_cell.get_text_size().y) * 0.5);
 			p_cell.draw_text(ci, draw_pos, p_color, p_ol_size, p_ol_color);
+			_add_drawn_text_effects(p_cell.bbcode);
 		}
 		rect.position.x += ts.width + theme_cache.icon_h_separation;
 	}
@@ -2268,6 +2285,7 @@ void Tree::draw_item_rect(const TreeItem::Cell &p_cell, const Rect2i &p_rect, co
 		Point2 draw_pos = rect.position;
 		draw_pos.y += Math::floor((rect.size.y - p_cell.get_text_size().y) * 0.5);
 		p_cell.draw_text(ci, draw_pos, p_color, p_ol_size, p_ol_color);
+		_add_drawn_text_effects(p_cell.bbcode);
 	}
 }
 
@@ -2720,8 +2738,10 @@ int Tree::draw_item(const Point2i &p_pos, const Point2 &p_draw_ofs, const Size2 
 
 						if (rtl) {
 							p_item->cells[i].draw_text(ci, text_pos + Vector2(cell_width - text_width, 0), cell_color, outline_size, font_outline_color);
+							_add_drawn_text_effects(p_item->cells[i].bbcode);
 						} else {
 							p_item->cells[i].draw_text(ci, text_pos, cell_color, outline_size, font_outline_color);
+							_add_drawn_text_effects(p_item->cells[i].bbcode);
 						}
 
 						Point2i arrow_pos = item_rect.position;
@@ -2736,8 +2756,10 @@ int Tree::draw_item(const Point2i &p_pos, const Point2 &p_draw_ofs, const Size2 
 
 						if (rtl) {
 							p_item->cells[i].draw_text(ci, text_pos + Vector2(cell_width - text_width, 0), cell_color, outline_size, font_outline_color);
+							_add_drawn_text_effects(p_item->cells[i].bbcode);
 						} else {
 							p_item->cells[i].draw_text(ci, text_pos, cell_color, outline_size, font_outline_color);
+							_add_drawn_text_effects(p_item->cells[i].bbcode);
 						}
 
 						if (!p_item->cells[i].editable) {
@@ -5319,6 +5341,7 @@ void Tree::_notification(int p_what) {
 
 			update_scrollbars();
 			RID ci = get_canvas_item();
+			drawn_text_effects.clear();
 
 			Ref<StyleBox> bg = theme_cache.panel_style;
 			const Rect2 content_rect = _get_content_rect();
@@ -5624,6 +5647,7 @@ void Tree::_notification(int p_what) {
 					}
 
 					columns[i].draw_title(header_ci, text_pos, theme_cache.title_button_color, theme_cache.font_outline_size, theme_cache.font_outline_color);
+					_add_drawn_text_effects(columns[i].bbcode);
 				}
 			}
 
@@ -5649,6 +5673,8 @@ void Tree::_notification(int p_what) {
 				theme_cache.focus_style->draw(ci, Rect2(Point2(), get_size()));
 				RenderingServer::get_singleton()->canvas_item_add_clip_ignore(ci, false);
 			}
+
+			set_text_effects_animated(!drawn_text_effects.is_empty());
 		} break;
 
 		case NOTIFICATION_THEME_CHANGED:

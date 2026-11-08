@@ -417,6 +417,19 @@ void TabBar::_set_tab_text_width(int p_tab, int p_width) {
 	}
 }
 
+void TabBar::_process_text_effects(double p_delta) {
+	bool animated = false;
+	for (const Tab &tab : tabs) {
+		if (tab.bbcode.is_valid() && tab.bbcode->has_effects()) {
+			tab.bbcode->process_effects(p_delta);
+			animated = true;
+		}
+	}
+	if (!animated) {
+		set_text_effects_animated(false);
+	}
+}
+
 void TabBar::set_bbcode_enabled(bool p_enabled) {
 	if (bbcode_enabled == p_enabled) {
 		return;
@@ -766,6 +779,9 @@ void TabBar::_draw_tab(Ref<StyleBox> &p_tab_style, const Color &p_font_color, co
 			draw_style.outline_size = theme_cache.outline_size;
 			draw_style.outline_color = theme_cache.font_outline_color;
 			tabs[p_index].bbcode->draw_at(ci, text_pos, draw_style);
+			if (tabs[p_index].bbcode->has_effects()) {
+				set_text_effects_animated(true);
+			}
 		} else if (theme_cache.outline_size > 0 && theme_cache.font_outline_color.a > 0) {
 			tabs[p_index].text_buf->draw_outline(ci, text_pos, theme_cache.outline_size, theme_cache.font_outline_color);
 		}

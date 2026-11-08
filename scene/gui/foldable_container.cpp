@@ -351,6 +351,7 @@ void FoldableContainer::_notification(int p_what) {
 				draw_style.outline_size = theme_cache.title_font_outline_size;
 				draw_style.outline_color = theme_cache.title_font_outline_color;
 				bbcode->draw_at(ci, title_rect.position + title_text_pos, draw_style, &bbcode_rect);
+				set_text_effects_animated(bbcode->has_effects());
 			} else if (title_text_width > 0) {
 				if (theme_cache.title_font_outline_size > 0 && theme_cache.title_font_outline_color.a > 0) {
 					text_buf->draw_outline(ci, title_rect.position + title_text_pos, theme_cache.title_font_outline_size, theme_cache.title_font_outline_color);
@@ -556,6 +557,12 @@ void FoldableContainer::_shape() {
 	text_buf->add_string(atr(title), font, font_size, lang);
 }
 
+void FoldableContainer::_process_text_effects(double p_delta) {
+	if (title_bbcode_enabled) {
+		bbcode->process_effects(p_delta);
+	}
+}
+
 void FoldableContainer::set_title_bbcode_enabled(bool p_enabled) {
 	if (title_bbcode_enabled == p_enabled) {
 		return;
@@ -566,6 +573,7 @@ void FoldableContainer::set_title_bbcode_enabled(bool p_enabled) {
 		bbcode->set_owner(this);
 	} else {
 		bbcode = Ref<BBCodeText>();
+		set_text_effects_animated(false);
 	}
 	_shape();
 	update_minimum_size();

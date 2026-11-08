@@ -31,7 +31,9 @@
 #pragma once
 
 #include "core/object/ref_counted.h"
+#include "scene/gui/bbcode_parser.h"
 #include "scene/gui/control.h"
+#include "scene/gui/rich_text_effect.h"
 #include "scene/resources/label_settings.h"
 #include "servers/text/text_server.h"
 
@@ -39,7 +41,8 @@ class Texture2D;
 class Window;
 
 // Lays out and draws BBCode text for controls that show text without RichTextLabel.
-// Supports the RichTextLabel tags except tables and effects, plus [spacer].
+// Supports the RichTextLabel tags except tables, plus [spacer]. Effects only change how the glyphs are drawn, the
+// owner advances their time with process_effects().
 class BBCodeText : public RefCounted {
 	GDCLASS(BBCodeText, RefCounted);
 
@@ -88,6 +91,16 @@ private:
 		IMAGE_UNIT_EM,
 	};
 
+	enum EffectType {
+		EFFECT_CUSTOM,
+		EFFECT_FADE,
+		EFFECT_SHAKE,
+		EFFECT_WAVE,
+		EFFECT_TORNADO,
+		EFFECT_RAINBOW,
+		EFFECT_PULSE,
+	};
+
 	enum ListType {
 		LIST_NUMBERS,
 		LIST_LETTERS,
@@ -115,6 +128,7 @@ private:
 		int meta = -1;
 		int hint = -1;
 		String language;
+		Vector<int> effects; // Indices of the effects of the open tags, outermost first.
 
 		mutable Ref<Font> resolved_font;
 		mutable uint64_t resolved_version = 0;
@@ -136,6 +150,34 @@ private:
 		String tooltip;
 
 		float weight = 1.0; // Spacer share of the free line space.
+	};
+
+	// An effect tag with the options of RichTextLabel, and its state over time.
+	struct Effect {
+		EffectType type = EFFECT_CUSTOM;
+		int char_start = 0; // First character inside the tag.
+		bool connected = true; // Connected glyphs move together.
+
+		int strength = 5; // [shake]
+		float rate = 20.0; // [shake]
+		float amplitude = 20.0; // [wave]
+		float radius = 10.0; // [tornado]
+		float frequency = 1.0; // [wave], [tornado], [rainbow] and [pulse].
+		float saturation = 0.8; // [rainbow]
+		float value = 0.8; // [rainbow]
+		float speed = 1.0; // [rainbow]
+		Color color = Color(1, 1, 1, 0.25); // [pulse]
+		float ease = -2.0; // [pulse]
+		int start = 0; // [fade]
+		int length = 10; // [fade]
+
+		Ref<RichTextEffect> custom;
+		Ref<CharFXTransform> char_fx; // Custom effects, with the environment of the tag.
+
+		double elapsed_time = 0.0;
+		uint64_t current_rng = 0; // [shake]
+		uint64_t previous_rng = 0; // [shake]
+		Vector2 prev_off; // Offset of the previous glyph, kept by connected glyphs.
 	};
 
 	struct Run {
@@ -193,6 +235,20 @@ private:
 		int style = 0;
 		Vector2 pos;
 		bool skipped = false; // Hidden by the visible characters.
+
+		// The changes of the effects, see _apply_effects().
+		bool has_fx = false;
+		bool fx_hidden = false;
+		bool fx_transformed = false;
+		uint32_t fx_index = 0; // Glyph index.
+		Vector2 fx_offset;
+		Transform2D fx_transform; // Around the pen position, as CharFXTransform.transform.
+		Color fx_color;
+		float fx_alpha = 1.0; // Alpha change of the color, applied to outlines and shadows too.
+
+		PlacedGlyph() {}
+		PlacedGlyph(const Glyph *p_glyph, int p_style, const Vector2 &p_pos, bool p_skipped) :
+				glyph(p_glyph), style(p_style), pos(p_pos), skipped(p_skipped) {}
 	};
 
 	enum DecorationKind {
@@ -271,6 +327,8 @@ private:
 		void add_object(const InlineObject &p_object);
 		void open_paragraph_tag();
 		void set_font_kind();
+		void push_effect(const Effect &p_effect);
+		int get_char_position() const;
 
 		Builder(BBCodeText *p_bbcode);
 	};
@@ -284,6 +342,10 @@ private:
 	Vector<Meta> metas;
 	Vector<String> hints;
 	String parsed_text;
+	mutable LocalVector<Effect> effects; // Their state changes while drawing.
+	Array custom_effects;
+	double effects_time = 0.0;
+	mutable LocalVector<double> appear_times; // When each character was first drawn, negative while it's hidden.
 	bool has_relative_objects = false;
 	int list_count = 0;
 
@@ -326,6 +388,7 @@ private:
 
 	// Parsing.
 	void _parse();
+	bool _parse_effect(const BBCodeParser::Tag &p_tag, Effect &r_effect) const;
 	void _clear_shaped() const;
 
 	// Shaping and line breaking.
@@ -350,13 +413,35 @@ private:
 	HorizontalAlignment _get_alignment(const Paragraph &p_para) const;
 	bool _is_paragraph_rtl(const Paragraph &p_para) const;
 
-	// Drawing.
-	void _draw_line(RID p_ci, const Paragraph &p_para, int p_line, const Vector2 &p_ofs, const DrawStyle &p_style, int &r_processed_glyphs, int p_total_glyphs) const;
+	// Drawing. Every pass covers all lines before the next starts, so no line draws over the letters of another.
+	enum DrawPass {
+		DRAW_PASS_BACKGROUND,
+		DRAW_PASS_SHADOWS,
+		DRAW_PASS_OUTLINES,
+		DRAW_PASS_TEXT,
+		DRAW_PASS_MAX,
+	};
+
+	// A line ready to draw: its glyphs placed and changed by the effects.
+	struct DrawnLine {
+		const Paragraph *para = nullptr;
+		RID rid;
+		Vector2 ofs;
+		int processed = 0; // Glyphs drawn before the line.
+		Trim trim;
+		LocalVector<PlacedGlyph> glyphs;
+	};
+
+	void _prepare_line(const Paragraph &p_para, int p_line, const Vector2 &p_ofs, const DrawStyle &p_style, int &r_processed_glyphs, int p_total_glyphs, DrawnLine &r_line) const;
+	void _draw_line(RID p_ci, const DrawnLine &p_line, DrawPass p_pass, const DrawStyle &p_style) const;
 	Trim _make_trim(const Paragraph &p_para, int p_total_glyphs) const;
 	Vector<int> _get_glyph_styles(RID p_rid) const;
 	bool _is_object_skipped(const Trim &p_trim, const Paragraph &p_para, RID p_rid, const Variant &p_key, int p_processed) const;
 	static void _place_line_glyphs(RID p_rid, bool p_rtl, const Vector2 &p_ofs, const Vector<int> &p_styles, const Trim &p_trim, int p_processed, LocalVector<PlacedGlyph> &r_glyphs);
+	void _apply_effects(const Paragraph &p_para, LocalVector<PlacedGlyph> &r_glyphs, const DrawStyle &p_style) const;
 	bool _is_glyph_drawn(const PlacedGlyph &p_glyph, const DrawStyle &p_style) const;
+	Color _get_glyph_color(const PlacedGlyph &p_glyph, const DrawStyle &p_style) const;
+	static void _draw_glyph(RID p_ci, const PlacedGlyph &p_glyph, int p_outline_size, const Color &p_color, const Vector2 &p_offset);
 	static void _draw_box(RID p_target, float p_start, float p_end, const Color &p_color, const Vector2 &p_ofs, double p_ascent, double p_line_height, const DrawStyle &p_style);
 	void _draw_boxes(const LocalVector<PlacedGlyph> &p_glyphs, RID p_target, bool p_foreground, const Vector2 &p_ofs, double p_ascent, double p_line_height, const DrawStyle &p_style) const;
 	void _draw_glyph_effect(const LocalVector<PlacedGlyph> &p_glyphs, RID p_ci, int p_outline_size, bool p_fill, const Color &p_color, const Vector2 &p_offset, const DrawStyle &p_style) const;
@@ -423,6 +508,12 @@ public:
 	void set_width(int p_width);
 	// Height used to count the visible lines, negative to show all lines.
 	void set_height(float p_height);
+
+	// Custom effects, used by the tags named after RichTextEffect.bbcode.
+	void set_custom_effects(const Array &p_effects);
+	bool has_effects() const;
+	// Advances the time of the effects, the owner calls it every frame while has_effects() is true and redraws.
+	void process_effects(double p_delta);
 
 	bool has_metas() const;
 	bool has_hints() const;

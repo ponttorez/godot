@@ -4543,6 +4543,31 @@ bool Control::is_tooltip_bbcode_enabled() const {
 	return data.tooltip_bbcode_enabled;
 }
 
+void Control::set_text_effects_animated(bool p_animated) {
+	if (data.text_effects_animated == p_animated || (p_animated && !is_inside_tree())) {
+		return;
+	}
+	data.text_effects_animated = p_animated;
+	const Callable frame = callable_mp(this, &Control::_text_effects_frame);
+	if (p_animated) {
+		get_tree()->connect(SNAME("process_frame"), frame);
+	} else if (is_inside_tree() && get_tree()->is_connected(SNAME("process_frame"), frame)) {
+		get_tree()->disconnect(SNAME("process_frame"), frame);
+	}
+}
+
+void Control::_text_effects_frame() {
+	if (!is_visible_in_tree()) {
+		set_text_effects_animated(false); // Animated again when drawn.
+		return;
+	}
+	if (!can_process()) {
+		return; // Paused.
+	}
+	_process_text_effects(get_process_delta_time());
+	queue_redraw();
+}
+
 bool Control::is_tooltip_bbcode_enabled_at(const Vector2 &p_at) const {
 	ERR_READ_THREAD_GUARD_V(false);
 	bool bbcode_enabled;
@@ -4774,6 +4799,8 @@ void Control::_notification(int p_notification) {
 
 		case NOTIFICATION_EXIT_TREE: {
 			set_theme_context(nullptr, false);
+			// Animated again when drawn.
+			set_text_effects_animated(false);
 
 			release_focus();
 			get_viewport()->_gui_remove_control(this);

@@ -219,6 +219,7 @@ protected:
 	bool _property_can_revert(const StringName &p_name) const { return property_helper.property_can_revert(p_name); }
 	bool _property_get_revert(const StringName &p_name, Variant &r_property) const { return property_helper.property_get_revert(p_name, r_property); }
 	void _notification(int p_what);
+	virtual void _process_text_effects(double p_delta) override;
 	static void _bind_methods();
 
 	Variant get_drag_data(const Point2 &p_point) override;

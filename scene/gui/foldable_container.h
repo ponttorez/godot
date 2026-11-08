@@ -108,6 +108,7 @@ protected:
 	virtual String get_tooltip(const Point2 &p_pos) const override;
 	virtual bool has_point(const Point2 &p_point) const override;
 	void _notification(int p_what);
+	virtual void _process_text_effects(double p_delta) override;
 	static void _bind_methods();
 
 public:

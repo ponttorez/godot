@@ -140,6 +140,27 @@ void BBCodeText::Builder::set_font_kind() {
 	push_style(style);
 }
 
+void BBCodeText::Builder::push_effect(const Effect &p_effect) {
+	Effect effect = p_effect;
+	effect.char_start = get_char_position();
+	bbcode->effects.push_back(effect);
+	SpanStyle style = bbcode->styles[state().style];
+	style.effects.push_back(bbcode->effects.size() - 1);
+	push_style(style);
+}
+
+// The index of the next character, counted as in the character ranges of the paragraphs.
+int BBCodeText::Builder::get_char_position() const {
+	int pos = 0;
+	for (const Paragraph &para : bbcode->paragraphs) {
+		pos += para.is_hr ? 2 : 1;
+		for (const Run &run : para.runs) {
+			pos += run.object >= 0 ? 1 : run.text.length();
+		}
+	}
+	return pos - 1; // No line break after the last paragraph.
+}
+
 BBCodeText::Builder::Builder(BBCodeText *p_bbcode) {
 	bbcode = p_bbcode;
 	states.push_back(ParseState());
@@ -152,6 +173,7 @@ void BBCodeText::_parse() {
 	objects.clear();
 	metas.clear();
 	hints.clear();
+	effects.clear();
 	has_relative_objects = false;
 	list_count = 0;
 
@@ -587,13 +609,20 @@ void BBCodeText::_parse() {
 			}
 			style.variations.push_back(variation);
 			builder.push_style(style);
-		} else if (parsed.name == "fade" || parsed.name == "shake" || parsed.name == "wave" || parsed.name == "tornado" || parsed.name == "rainbow" || parsed.name == "pulse" || tag == "cell" || tag.begins_with("cell ") || tag.begins_with("cell=") || tag.begins_with("table=")) {
-			// Effects and tables are left to RichTextLabel, their text is shown as is.
+		} else if (tag == "cell" || tag.begins_with("cell ") || tag.begins_with("cell=") || tag.begins_with("table=")) {
+			// Tables are left to RichTextLabel, their text is shown as is.
 			builder.push_state(parsed.name.begins_with("cell") ? String("cell") : parsed.name);
 		} else {
-			// Not a tag, keep the bracket.
-			builder.add_text("[");
-			pos = brk_pos + 1;
+			Effect effect;
+			if (_parse_effect(parsed, effect)) {
+				// Custom effects close with the whole first part of the tag, as in RichTextLabel.
+				builder.push_state(effect.type == EFFECT_CUSTOM ? parsed.blocks[0] : parsed.name);
+				builder.push_effect(effect);
+			} else {
+				// Not a tag, keep the bracket.
+				builder.add_text("[");
+				pos = brk_pos + 1;
+			}
 		}
 	}
 
@@ -660,7 +689,95 @@ void BBCodeText::_parse() {
 		}
 	}
 
+	appear_times.clear();
+	if (!effects.is_empty()) {
+		appear_times.resize(get_total_character_count() + 1);
+		for (double &time : appear_times) {
+			time = -1.0;
+		}
+	}
+
 	shape_dirty = true;
+}
+
+// Effects with the options and defaults of RichTextLabel, or the custom effect named as the tag.
+bool BBCodeText::_parse_effect(const Tag &p_tag, Effect &r_effect) const {
+	const OptionMap &options = p_tag.options;
+	if (p_tag.name == "fade") {
+		r_effect.type = EFFECT_FADE;
+		if (options.has("start")) {
+			r_effect.start = options["start"].to_int();
+		}
+		if (options.has("length")) {
+			r_effect.length = options["length"].to_int();
+		}
+	} else if (p_tag.name == "shake") {
+		r_effect.type = EFFECT_SHAKE;
+		if (options.has("level")) {
+			r_effect.strength = options["level"].to_int();
+		}
+		if (options.has("rate")) {
+			r_effect.rate = options["rate"].to_float();
+		}
+	} else if (p_tag.name == "wave") {
+		r_effect.type = EFFECT_WAVE;
+		if (options.has("amp")) {
+			r_effect.amplitude = options["amp"].to_float();
+		}
+		r_effect.frequency = options.has("freq") ? options["freq"].to_float() : 5.0f;
+	} else if (p_tag.name == "tornado") {
+		r_effect.type = EFFECT_TORNADO;
+		if (options.has("radius")) {
+			r_effect.radius = options["radius"].to_float();
+		}
+		if (options.has("freq")) {
+			r_effect.frequency = options["freq"].to_float();
+		}
+	} else if (p_tag.name == "rainbow") {
+		r_effect.type = EFFECT_RAINBOW;
+		if (options.has("sat")) {
+			r_effect.saturation = options["sat"].to_float();
+		}
+		if (options.has("val")) {
+			r_effect.value = options["val"].to_float();
+		}
+		if (options.has("freq")) {
+			r_effect.frequency = options["freq"].to_float();
+		}
+		if (options.has("speed")) {
+			r_effect.speed = options["speed"].to_float();
+		}
+	} else if (p_tag.name == "pulse") {
+		r_effect.type = EFFECT_PULSE;
+		if (options.has("color")) {
+			r_effect.color = Color::from_string(options["color"], r_effect.color);
+		}
+		if (options.has("freq")) {
+			r_effect.frequency = options["freq"].to_float();
+		}
+		if (options.has("ease")) {
+			r_effect.ease = options["ease"].to_float();
+		}
+	} else {
+		if (p_tag.blocks.is_empty()) {
+			return false;
+		}
+		for (const Variant &item : custom_effects) {
+			Ref<RichTextEffect> custom = item;
+			if (custom.is_valid() && custom->get_bbcode() == Variant(p_tag.blocks[0])) {
+				r_effect.type = EFFECT_CUSTOM;
+				r_effect.custom = custom;
+				r_effect.char_fx.instantiate();
+				r_effect.char_fx->environment = parse_effect_environment(p_tag.blocks.slice(1));
+				return true;
+			}
+		}
+		return false;
+	}
+	if ((r_effect.type == EFFECT_SHAKE || r_effect.type == EFFECT_WAVE || r_effect.type == EFFECT_TORNADO) && options.has("connected")) {
+		r_effect.connected = options["connected"].to_int();
+	}
+	return true;
 }
 
 void BBCodeText::_clear_shaped() const {
@@ -1285,7 +1402,7 @@ void BBCodeText::_place_line_glyphs(RID p_rid, bool p_rtl, const Vector2 &p_ofs,
 	if (p_rtl && ellipsis_pos >= 0) {
 		for (int i = ellipsis_gl_size - 1; i >= 0; i--) {
 			for (int j = 0; j < ellipsis_glyphs[i].repeat; j++) {
-				r_glyphs.push_back({ &ellipsis_glyphs[i], ellipsis_style, ofs, p_trim.is_skipped(ellipsis_glyphs[i], processed) });
+				r_glyphs.push_back(PlacedGlyph(&ellipsis_glyphs[i], ellipsis_style, ofs, p_trim.is_skipped(ellipsis_glyphs[i], processed)));
 				processed++;
 				ofs.x += ellipsis_glyphs[i].advance;
 			}
@@ -1302,7 +1419,7 @@ void BBCodeText::_place_line_glyphs(RID p_rid, bool p_rtl, const Vector2 &p_ofs,
 			}
 		}
 		for (int j = 0; j < glyphs[i].repeat; j++) {
-			r_glyphs.push_back({ &glyphs[i], p_styles[i], ofs, p_trim.is_skipped(glyphs[i], processed) });
+			r_glyphs.push_back(PlacedGlyph(&glyphs[i], p_styles[i], ofs, p_trim.is_skipped(glyphs[i], processed)));
 			processed++;
 			ofs.x += glyphs[i].advance;
 		}
@@ -1310,7 +1427,7 @@ void BBCodeText::_place_line_glyphs(RID p_rid, bool p_rtl, const Vector2 &p_ofs,
 	if (!p_rtl && ellipsis_pos >= 0) {
 		for (int i = 0; i < ellipsis_gl_size; i++) {
 			for (int j = 0; j < ellipsis_glyphs[i].repeat; j++) {
-				r_glyphs.push_back({ &ellipsis_glyphs[i], ellipsis_style, ofs, p_trim.is_skipped(ellipsis_glyphs[i], processed) });
+				r_glyphs.push_back(PlacedGlyph(&ellipsis_glyphs[i], ellipsis_style, ofs, p_trim.is_skipped(ellipsis_glyphs[i], processed)));
 				processed++;
 				ofs.x += ellipsis_glyphs[i].advance;
 			}
@@ -1318,8 +1435,187 @@ void BBCodeText::_place_line_glyphs(RID p_rid, bool p_rtl, const Vector2 &p_ofs,
 	}
 }
 
+// Runs the glyphs with effects through the effects of their tags, innermost first, as RichTextLabel does.
+void BBCodeText::_apply_effects(const Paragraph &p_para, LocalVector<PlacedGlyph> &r_glyphs, const DrawStyle &p_style) const {
+	if (effects.is_empty()) {
+		return;
+	}
+	const bool snap = owner && owner->is_inside_tree() && owner->get_viewport()->is_snap_2d_transforms_to_pixel_enabled();
+
+	for (uint32_t i = 0; i < r_glyphs.size(); i++) {
+		PlacedGlyph &placed = r_glyphs[i];
+		const SpanStyle &style = styles[placed.style];
+		if (style.effects.is_empty()) {
+			continue;
+		}
+		const Glyph &glyph = *placed.glyph;
+		const int char_index = p_para.char_start + glyph.start;
+
+		double appear_time = 0.0;
+		if (char_index >= 0 && char_index < (int)appear_times.size()) {
+			double &appeared = appear_times[char_index];
+			if (placed.skipped) {
+				appeared = -1.0;
+			} else {
+				if (appeared < 0.0) {
+					appeared = effects_time;
+				}
+				appear_time = effects_time - appeared;
+			}
+		}
+		if (placed.skipped) {
+			continue;
+		}
+
+		// Parts of a grapheme cluster and connected graphemes move with the previous glyph.
+		const bool prev_cluster = glyph.count == 0;
+		bool prev_connected = false;
+		if (glyph.flags & TextServer::GRAPHEME_IS_RTL) {
+			prev_connected = i > 0 && (r_glyphs[i - 1].glyph->flags & TextServer::GRAPHEME_IS_CONNECTED);
+		} else {
+			prev_connected = glyph.flags & TextServer::GRAPHEME_IS_CONNECTED;
+		}
+
+		Color color = _get_style_color(placed.style, p_style);
+		const float base_alpha = color.a;
+		Vector2 offset(glyph.x_off, glyph.y_off);
+		Transform2D xform;
+		xform.set_origin(placed.pos);
+		uint32_t index = glyph.index;
+		bool visible = true;
+		bool custom_ok = true;
+		const float wave_x = placed.pos.x / 50;
+
+		for (int j = style.effects.size() - 1; j >= 0; j--) {
+			const Effect &effect = effects[style.effects[j]];
+			if (effect.type == EFFECT_FADE) {
+				const int start = effect.char_start + effect.start;
+				if (char_index >= start) {
+					color.a *= MAX(0.0f, 1.0f - float(char_index - start) / MAX(1, effect.length));
+				}
+			}
+		}
+
+		for (int j = style.effects.size() - 1; j >= 0; j--) {
+			Effect &effect = effects[style.effects[j]];
+			const bool connected = prev_cluster || (prev_connected && effect.connected);
+			switch (effect.type) {
+				case EFFECT_FADE: {
+				} break;
+				case EFFECT_SHAKE: {
+					if (!connected) {
+						const int shift = glyph.start % 64;
+						const uint64_t current_rand = (effect.current_rng >> shift) | (effect.current_rng << (64 - shift));
+						const uint64_t previous_rand = (effect.previous_rng >> shift) | (effect.previous_rng << (64 - shift));
+						const uint64_t max_rand = 2147483647;
+						const double current_offset = Math::remap((double)(current_rand % max_rand), 0.0, (double)max_rand, 0.0, Math::TAU);
+						const double previous_offset = Math::remap((double)(previous_rand % max_rand), 0.0, (double)max_rand, 0.0, Math::TAU);
+						const double n_time = MIN(1.0, effect.elapsed_time / (0.5f / effect.rate));
+						effect.prev_off = Point2(Math::lerp(Math::sin(previous_offset), Math::sin(current_offset), n_time), Math::lerp(Math::cos(previous_offset), Math::cos(current_offset), n_time)) * (float)effect.strength / 10.0f;
+					}
+					offset += effect.prev_off;
+				} break;
+				case EFFECT_WAVE: {
+					if (!connected) {
+						effect.prev_off = Point2(0, Math::sin(effect.frequency * effect.elapsed_time + wave_x) * (effect.amplitude / 10.0f));
+					}
+					offset += effect.prev_off;
+				} break;
+				case EFFECT_TORNADO: {
+					if (!connected) {
+						const double angle = effect.frequency * effect.elapsed_time + wave_x;
+						effect.prev_off = Point2(Math::sin(angle) * effect.radius, Math::cos(angle) * effect.radius);
+					}
+					offset += effect.prev_off;
+				} break;
+				case EFFECT_RAINBOW: {
+					color = Color::from_ok_hsv(MAX(effect.frequency, 0) * Math::abs(effect.elapsed_time * effect.speed + wave_x), effect.saturation, effect.value, color.a);
+				} break;
+				case EFFECT_PULSE: {
+					const float weight = Math::ease(Math::pingpong(effect.elapsed_time, 1.0 / effect.frequency) * effect.frequency, effect.ease);
+					color = color.lerp(color * effect.color, weight);
+				} break;
+				case EFFECT_CUSTOM: {
+					if (!custom_ok || effect.custom.is_null()) {
+						break;
+					}
+					const Ref<CharFXTransform> &char_fx = effect.char_fx;
+					char_fx->elapsed_time = effect.elapsed_time;
+					char_fx->appear_time = appear_time;
+					char_fx->range = Vector2i(char_index, p_para.char_start + glyph.end);
+					char_fx->relative_index = char_index - effect.char_start;
+					char_fx->visibility = visible;
+					char_fx->outline = false;
+					char_fx->font = glyph.font_rid;
+					char_fx->glyph_index = index;
+					char_fx->glyph_flags = glyph.flags;
+					char_fx->glyph_count = glyph.count;
+					char_fx->offset = offset;
+					char_fx->color = color;
+					char_fx->transform = xform;
+
+					custom_ok = effect.custom->_process_effect_impl(char_fx);
+
+					xform = char_fx->transform;
+					offset = char_fx->offset;
+					color = char_fx->color;
+					index = char_fx->glyph_index;
+					visible = visible && char_fx->visibility;
+				} break;
+			}
+		}
+
+		if (snap) {
+			offset = (offset + Vector2(0.5, 0.5)).floor();
+		}
+		placed.has_fx = true;
+		placed.fx_hidden = !visible;
+		placed.fx_index = index;
+		placed.fx_offset = offset - Vector2(glyph.x_off, glyph.y_off);
+		placed.fx_color = color;
+		placed.fx_alpha = base_alpha > 0 ? color.a / base_alpha : 1.0f;
+		placed.fx_transform = xform;
+		placed.fx_transformed = xform != Transform2D(0.0, placed.pos);
+	}
+}
+
+Color BBCodeText::_get_glyph_color(const PlacedGlyph &p_glyph, const DrawStyle &p_style) const {
+	return p_glyph.has_fx ? p_glyph.fx_color : _get_style_color(p_glyph.style, p_style);
+}
+
 bool BBCodeText::_is_glyph_drawn(const PlacedGlyph &p_glyph, const DrawStyle &p_style) const {
-	return !p_glyph.skipped && _get_style_color(p_glyph.style, p_style).a != 0;
+	return !p_glyph.skipped && !p_glyph.fx_hidden && _get_glyph_color(p_glyph, p_style).a != 0;
+}
+
+// Draws a glyph, or its outline when p_outline_size is positive, moved by p_offset and changed by the effects.
+void BBCodeText::_draw_glyph(RID p_ci, const PlacedGlyph &p_glyph, int p_outline_size, const Color &p_color, const Vector2 &p_offset) {
+	const Glyph &glyph = *p_glyph.glyph;
+	const Vector2 pos = p_glyph.pos + Vector2(glyph.x_off, glyph.y_off) + p_glyph.fx_offset + p_offset;
+	const uint32_t index = p_glyph.has_fx ? p_glyph.fx_index : glyph.index;
+	Color color = p_color;
+	if (p_glyph.has_fx) {
+		color.a *= p_glyph.fx_alpha;
+	}
+
+	RenderingServer *rs = RenderingServer::get_singleton();
+	if (p_glyph.fx_transformed) {
+		// Around the pen position of the drawn layer, as in RichTextLabel.
+		Transform2D xform = p_glyph.fx_transform * Transform2D(0.0, -(p_glyph.pos + p_offset));
+		xform.columns[2] += p_offset;
+		rs->canvas_item_add_set_transform(p_ci, xform);
+	}
+	if (glyph.font_rid.is_valid()) {
+		if (p_outline_size > 0) {
+			TS->font_draw_glyph_outline(glyph.font_rid, p_ci, glyph.font_size, p_outline_size, pos, index, color);
+		} else {
+			TS->font_draw_glyph(glyph.font_rid, p_ci, glyph.font_size, pos, index, color);
+		}
+	} else if (p_outline_size <= 0 && ((glyph.flags & TextServer::GRAPHEME_IS_VIRTUAL) != TextServer::GRAPHEME_IS_VIRTUAL) && ((glyph.flags & TextServer::GRAPHEME_IS_EMBEDDED_OBJECT) != TextServer::GRAPHEME_IS_EMBEDDED_OBJECT)) {
+		TS->draw_hex_code_box(p_ci, glyph.font_size, pos, index, color);
+	}
+	if (p_glyph.fx_transformed) {
+		rs->canvas_item_add_set_transform(p_ci, Transform2D());
+	}
 }
 
 void BBCodeText::_draw_box(RID p_target, float p_start, float p_end, const Color &p_color, const Vector2 &p_ofs, double p_ascent, double p_line_height, const DrawStyle &p_style) {
@@ -1395,117 +1691,124 @@ bool BBCodeText::_is_object_skipped(const Trim &p_trim, const Paragraph &p_para,
 	return false;
 }
 
-void BBCodeText::_draw_line(RID p_ci, const Paragraph &p_para, int p_line, const Vector2 &p_ofs, const DrawStyle &p_style, int &r_processed_glyphs, int p_total_glyphs) const {
-	const RID rid = p_para.lines[p_line].rid;
-	const bool rtl = _is_paragraph_rtl(p_para);
-	const Trim trim = _make_trim(p_para, p_total_glyphs);
-	const Vector<int> gl_styles = _get_glyph_styles(rid);
+void BBCodeText::_prepare_line(const Paragraph &p_para, int p_line, const Vector2 &p_ofs, const DrawStyle &p_style, int &r_processed_glyphs, int p_total_glyphs, DrawnLine &r_line) const {
+	r_line.para = &p_para;
+	r_line.rid = p_para.lines[p_line].rid;
+	r_line.ofs = p_ofs;
+	r_line.processed = r_processed_glyphs;
+	r_line.trim = _make_trim(p_para, p_total_glyphs);
+	_place_line_glyphs(r_line.rid, _is_paragraph_rtl(p_para), p_ofs, _get_glyph_styles(r_line.rid), r_line.trim, r_line.processed, r_line.glyphs);
+	_apply_effects(p_para, r_line.glyphs, p_style);
+	r_processed_glyphs = r_line.processed + r_line.glyphs.size();
+}
 
+void BBCodeText::_draw_line(RID p_ci, const DrawnLine &p_line, DrawPass p_pass, const DrawStyle &p_style) const {
+	const RID rid = p_line.rid;
+	const LocalVector<PlacedGlyph> &placed_glyphs = p_line.glyphs;
 	const double ascent = TS->shaped_text_get_ascent(rid);
 	const double line_h = TS->shaped_text_get_size(rid).y;
-	const float upos = TS->shaped_text_get_underline_position(rid);
-	const float uthk = MAX(1.0f, (float)TS->shaped_text_get_underline_thickness(rid));
-	const int processed = r_processed_glyphs;
-	LocalVector<PlacedGlyph> placed_glyphs;
-	_place_line_glyphs(rid, rtl, p_ofs, gl_styles, trim, processed, placed_glyphs);
 
-	_draw_boxes(placed_glyphs, p_ci, false, p_ofs, ascent, line_h, p_style);
+	switch (p_pass) {
+		case DRAW_PASS_BACKGROUND: {
+			_draw_boxes(placed_glyphs, p_ci, false, p_line.ofs, ascent, line_h, p_style);
+		} break;
 
-	if (p_style.shadow_color.a > 0) {
-		if (p_style.shadow_outline_size > 0) {
-			_draw_glyph_effect(placed_glyphs, p_ci, p_style.shadow_outline_size, false, p_style.shadow_color, p_style.shadow_offset, p_style);
-		}
-		_draw_glyph_effect(placed_glyphs, p_ci, 0, true, p_style.shadow_color, p_style.shadow_offset, p_style);
-	}
-
-	for (int i = p_style.stacked_shadows.size() - 1; i >= 0; i--) {
-		const LabelSettings::StackedShadowData &shadow = p_style.stacked_shadows[i];
-		_draw_glyph_effect(placed_glyphs, p_ci, shadow.outline_size, true, shadow.color, shadow.offset, p_style);
-	}
-
-	if (!p_style.stacked_outlines.is_empty()) {
-		int stacked_size = p_style.outline_size;
-		for (const LabelSettings::StackedOutlineData &outline : p_style.stacked_outlines) {
-			stacked_size += MAX(0, outline.size);
-		}
-		for (int i = p_style.stacked_outlines.size() - 1; i >= 0; i--) {
-			const LabelSettings::StackedOutlineData &outline = p_style.stacked_outlines[i];
-			if (outline.size <= 0) {
-				continue;
+		case DRAW_PASS_SHADOWS: {
+			if (p_style.shadow_color.a > 0) {
+				if (p_style.shadow_outline_size > 0) {
+					_draw_glyph_effect(placed_glyphs, p_ci, p_style.shadow_outline_size, false, p_style.shadow_color, p_style.shadow_offset, p_style);
+				}
+				_draw_glyph_effect(placed_glyphs, p_ci, 0, true, p_style.shadow_color, p_style.shadow_offset, p_style);
 			}
-			_draw_glyph_effect(placed_glyphs, p_ci, stacked_size, false, outline.color, Vector2(), p_style);
-			stacked_size -= outline.size;
-		}
+			for (int i = p_style.stacked_shadows.size() - 1; i >= 0; i--) {
+				const LabelSettings::StackedShadowData &shadow = p_style.stacked_shadows[i];
+				_draw_glyph_effect(placed_glyphs, p_ci, shadow.outline_size, true, shadow.color, shadow.offset, p_style);
+			}
+		} break;
+
+		case DRAW_PASS_OUTLINES: {
+			if (!p_style.stacked_outlines.is_empty()) {
+				int stacked_size = p_style.outline_size;
+				for (const LabelSettings::StackedOutlineData &outline : p_style.stacked_outlines) {
+					stacked_size += MAX(0, outline.size);
+				}
+				for (int i = p_style.stacked_outlines.size() - 1; i >= 0; i--) {
+					const LabelSettings::StackedOutlineData &outline = p_style.stacked_outlines[i];
+					if (outline.size <= 0) {
+						continue;
+					}
+					_draw_glyph_effect(placed_glyphs, p_ci, stacked_size, false, outline.color, Vector2(), p_style);
+					stacked_size -= outline.size;
+				}
+			}
+
+			// The outline, which tags can change.
+			for (const PlacedGlyph &placed : placed_glyphs) {
+				const SpanStyle &style = styles[placed.style];
+				const int size = style.outline_size >= 0 ? style.outline_size : p_style.outline_size;
+				const Color color = style.has_outline_color ? style.outline_color : p_style.outline_color;
+				if (_is_glyph_drawn(placed, p_style) && placed.glyph->font_rid.is_valid() && size > 0 && color.a != 0) {
+					_draw_glyph(p_ci, placed, size, color, Vector2());
+				}
+			}
+		} break;
+
+		case DRAW_PASS_TEXT: {
+			// Inline images.
+			Array keys = TS->shaped_text_get_objects(rid);
+			for (const Variant &key : keys) {
+				const InlineObject &object = objects[(int)key];
+				if (object.type != OBJECT_IMAGE || object.texture.is_null()) {
+					continue;
+				}
+				if (_is_object_skipped(p_line.trim, *p_line.para, rid, key, p_line.processed)) {
+					continue;
+				}
+				Rect2 rect = TS->shaped_text_get_object_rect(rid, key);
+				rect.position += p_line.ofs;
+				if (object.pad) {
+					Size2 pad_size = rect.size.min(object.texture->get_size());
+					rect.position += (rect.size - pad_size) / 2;
+					rect.size = pad_size;
+				}
+				if (object.region.has_area()) {
+					object.texture->draw_rect_region(p_ci, rect, object.region, object.color);
+				} else {
+					object.texture->draw_rect(p_ci, rect, false, object.color);
+				}
+			}
+
+			for (const PlacedGlyph &placed : placed_glyphs) {
+				if (_is_glyph_drawn(placed, p_style)) {
+					// The color of the effects replaces the font color, it isn't changed again by the alpha of the effects.
+					PlacedGlyph glyph = placed;
+					glyph.fx_alpha = 1.0;
+					_draw_glyph(p_ci, glyph, 0, _get_glyph_color(placed, p_style), Vector2());
+				}
+			}
+
+			const float upos = TS->shaped_text_get_underline_position(rid);
+			const float uthk = MAX(1.0f, (float)TS->shaped_text_get_underline_thickness(rid));
+			_draw_decorations(placed_glyphs, p_ci, p_line.ofs, ascent, line_h, upos, uthk, p_style);
+			_draw_boxes(placed_glyphs, p_ci, true, p_line.ofs, ascent, line_h, p_style);
+		} break;
+
+		case DRAW_PASS_MAX: {
+		} break;
 	}
-
-	// The outline, which tags can change.
-	for (const PlacedGlyph &placed : placed_glyphs) {
-		const Glyph &glyph = *placed.glyph;
-		const SpanStyle &style = styles[placed.style];
-		const int size = style.outline_size >= 0 ? style.outline_size : p_style.outline_size;
-		const Color color = style.has_outline_color ? style.outline_color : p_style.outline_color;
-		if (_is_glyph_drawn(placed, p_style) && glyph.font_rid.is_valid() && size > 0 && color.a != 0) {
-			TS->font_draw_glyph_outline(glyph.font_rid, p_ci, glyph.font_size, size, placed.pos + Vector2(glyph.x_off, glyph.y_off), glyph.index, color);
-		}
-	}
-
-	// Inline images.
-	Array keys = TS->shaped_text_get_objects(rid);
-	for (const Variant &key : keys) {
-		const InlineObject &object = objects[(int)key];
-		if (object.type != OBJECT_IMAGE || object.texture.is_null()) {
-			continue;
-		}
-		if (_is_object_skipped(trim, p_para, rid, key, processed)) {
-			continue;
-		}
-		Rect2 rect = TS->shaped_text_get_object_rect(rid, key);
-		rect.position += p_ofs;
-		if (object.pad) {
-			Size2 pad_size = rect.size.min(object.texture->get_size());
-			rect.position += (rect.size - pad_size) / 2;
-			rect.size = pad_size;
-		}
-		if (object.region.has_area()) {
-			object.texture->draw_rect_region(p_ci, rect, object.region, object.color);
-		} else {
-			object.texture->draw_rect(p_ci, rect, false, object.color);
-		}
-	}
-
-	for (const PlacedGlyph &placed : placed_glyphs) {
-		if (!_is_glyph_drawn(placed, p_style)) {
-			continue;
-		}
-		const Glyph &glyph = *placed.glyph;
-		const Vector2 pos = placed.pos + Vector2(glyph.x_off, glyph.y_off);
-		const Color color = _get_style_color(placed.style, p_style);
-		if (glyph.font_rid.is_valid()) {
-			TS->font_draw_glyph(glyph.font_rid, p_ci, glyph.font_size, pos, glyph.index, color);
-		} else if (((glyph.flags & TextServer::GRAPHEME_IS_VIRTUAL) != TextServer::GRAPHEME_IS_VIRTUAL) && ((glyph.flags & TextServer::GRAPHEME_IS_EMBEDDED_OBJECT) != TextServer::GRAPHEME_IS_EMBEDDED_OBJECT)) {
-			TS->draw_hex_code_box(p_ci, glyph.font_size, pos, glyph.index, color);
-		}
-	}
-
-	_draw_decorations(placed_glyphs, p_ci, p_ofs, ascent, line_h, upos, uthk, p_style);
-	_draw_boxes(placed_glyphs, p_ci, true, p_ofs, ascent, line_h, p_style);
-
-	r_processed_glyphs = processed + placed_glyphs.size();
 }
 
 // Outlines and shadows: the outline of the glyphs, and the glyphs too when filled.
 void BBCodeText::_draw_glyph_effect(const LocalVector<PlacedGlyph> &p_glyphs, RID p_ci, int p_outline_size, bool p_fill, const Color &p_color, const Vector2 &p_offset, const DrawStyle &p_style) const {
 	for (const PlacedGlyph &placed : p_glyphs) {
-		const Glyph &glyph = *placed.glyph;
-		if (!_is_glyph_drawn(placed, p_style) || !glyph.font_rid.is_valid() || p_color.a == 0) {
+		if (!_is_glyph_drawn(placed, p_style) || !placed.glyph->font_rid.is_valid() || p_color.a == 0) {
 			continue;
 		}
-		const Vector2 pos = placed.pos + Vector2(glyph.x_off, glyph.y_off) + p_offset;
 		if (p_outline_size > 0) {
-			TS->font_draw_glyph_outline(glyph.font_rid, p_ci, glyph.font_size, p_outline_size, pos, glyph.index, p_color);
+			_draw_glyph(p_ci, placed, p_outline_size, p_color, p_offset);
 		}
 		if (p_fill) {
-			TS->font_draw_glyph(glyph.font_rid, p_ci, glyph.font_size, pos, glyph.index, p_color);
+			_draw_glyph(p_ci, placed, 0, p_color, p_offset);
 		}
 	}
 }
@@ -1785,6 +2088,12 @@ void BBCodeText::set_visible_characters_behavior(TextServer::VisibleCharactersBe
 
 void BBCodeText::set_visible_characters(int p_amount) {
 	if (visible_chars != p_amount) {
+		// The characters hidden again appear anew. Glyphs that aren't shaped anymore aren't drawn to notice it.
+		if (p_amount >= 0) {
+			for (uint32_t i = p_amount; i < appear_times.size(); i++) {
+				appear_times[i] = -1.0;
+			}
+		}
 		visible_chars = p_amount;
 		if (visible_chars_behavior == TextServer::VC_CHARS_BEFORE_SHAPING) {
 			shape_dirty = true;
@@ -1824,6 +2133,30 @@ void BBCodeText::set_width(int p_width) {
 
 void BBCodeText::set_height(float p_height) {
 	_set_dirty(height, p_height, lines_dirty);
+}
+
+void BBCodeText::set_custom_effects(const Array &p_effects) {
+	if (custom_effects == p_effects) {
+		return;
+	}
+	custom_effects = p_effects.duplicate();
+	_parse();
+}
+
+bool BBCodeText::has_effects() const {
+	return !effects.is_empty();
+}
+
+void BBCodeText::process_effects(double p_delta) {
+	effects_time += p_delta;
+	for (Effect &effect : effects) {
+		effect.elapsed_time += p_delta;
+		if (effect.type == EFFECT_SHAKE && effect.rate > 0 && effect.elapsed_time > 1.0 / effect.rate) {
+			effect.elapsed_time -= 1.0 / effect.rate;
+			effect.previous_rng = effect.current_rng;
+			effect.current_rng = Math::rand();
+		}
+	}
 }
 
 bool BBCodeText::has_metas() const {
@@ -2059,6 +2392,7 @@ void BBCodeText::draw(RID p_ci, const Rect2 &p_rect, VerticalAlignment p_valign,
 	const bool trim_chars = (visible_chars >= 0) && (visible_chars_behavior == TextServer::VC_CHARS_AFTER_SHAPING);
 	const bool trim_glyphs = (visible_chars >= 0) && (visible_chars_behavior != TextServer::VC_CHARS_BEFORE_SHAPING) && !trim_chars;
 	int processed_glyphs = 0;
+	LocalVector<DrawnLine> drawn_lines;
 
 	int line_index = 0;
 	for (const Paragraph &para : paragraphs) {
@@ -2124,11 +2458,18 @@ void BBCodeText::draw(RID p_ci, const Rect2 &p_rect, VerticalAlignment p_valign,
 				}
 			}
 
-			_draw_line(p_ci, para, i, Vector2(x, ofs_y + asc), p_style, processed_glyphs, total_glyphs);
+			drawn_lines.push_back(DrawnLine());
+			_prepare_line(para, i, Vector2(x, ofs_y + asc), p_style, processed_glyphs, total_glyphs, drawn_lines[drawn_lines.size() - 1]);
 			ofs_y += asc + dsc + ls;
 		}
 		ofs_y += paragraph_spacing;
 		line_index += para.lines.size();
+	}
+
+	for (int pass = 0; pass < DRAW_PASS_MAX; pass++) {
+		for (const DrawnLine &line : drawn_lines) {
+			_draw_line(p_ci, line, (DrawPass)pass, p_style);
+		}
 	}
 }
 

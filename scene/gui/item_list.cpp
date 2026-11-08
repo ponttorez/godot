@@ -113,8 +113,24 @@ void ItemList::_draw_item_text(int p_idx, const Vector2 &p_pos, const Color &p_c
 		draw_style.outline_size = theme_cache.font_outline_size;
 		draw_style.outline_color = theme_cache.font_outline_color;
 		item.bbcode->draw_at(get_canvas_item(), p_pos, draw_style);
+		if (item.bbcode->has_effects()) {
+			set_text_effects_animated(true);
+		}
 	} else {
 		item.text_buf->draw(get_canvas_item(), p_pos, p_color);
+	}
+}
+
+void ItemList::_process_text_effects(double p_delta) {
+	bool animated = false;
+	for (const Item &item : items) {
+		if (item.bbcode.is_valid() && item.bbcode->has_effects()) {
+			item.bbcode->process_effects(p_delta);
+			animated = true;
+		}
+	}
+	if (!animated) {
+		set_text_effects_animated(false);
 	}
 }
 

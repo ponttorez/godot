@@ -52,6 +52,7 @@ private:
 	bool uppercase = false;
 	bool bbcode_enabled = false;
 	mutable Ref<BBCodeText> bbcode;
+	Array custom_effects;
 
 	struct Paragraph {
 		bool lines_dirty = true;
@@ -117,6 +118,7 @@ protected:
 	int get_layout_data(Vector2 &r_offset, int &r_last_line, int &r_line_spacing) const;
 
 	void _notification(int p_what);
+	virtual void _process_text_effects(double p_delta) override;
 	static void _bind_methods();
 #ifndef DISABLE_DEPRECATED
 	bool _set(const StringName &p_name, const Variant &p_value);
@@ -142,6 +144,10 @@ public:
 	void set_bbcode_enabled(bool p_enabled);
 	bool is_bbcode_enabled() const;
 	String get_parsed_text() const;
+
+	void set_effects(const Array &p_effects);
+	Array get_effects() const;
+	void install_effect(const Variant &p_effect);
 
 	void set_label_settings(const Ref<LabelSettings> &p_settings);
 	Ref<LabelSettings> get_label_settings() const;
