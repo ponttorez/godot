@@ -35,7 +35,6 @@
 #include "editor/editor_string_names.h"
 #include "editor/settings/editor_settings.h"
 #include "editor/themes/editor_scale.h"
-#include "scene/resources/audio_stream_wav.h"
 #include "servers/rendering/rendering_server.h"
 
 // AudioStreamEditor
@@ -61,8 +60,10 @@ void AudioStreamEditor::_notification(int p_what) {
 			_preview->queue_redraw();
 		} break;
 		case NOTIFICATION_PROCESS: {
-			_current = _player->get_playback_position();
-			_indicator->queue_redraw();
+			if (!_compact) {
+				_current = _player->get_playback_position();
+				_indicator->queue_redraw();
+			}
 		} break;
 		case NOTIFICATION_VISIBILITY_CHANGED: {
 			if (!is_visible_in_tree()) {
@@ -112,13 +113,40 @@ void AudioStreamEditor::_preview_changed(ObjectID p_which) {
 }
 
 void AudioStreamEditor::_stream_changed() {
+	_update_mode();
 	if (!is_visible()) {
 		return;
 	}
 	queue_redraw();
 }
 
+void AudioStreamEditor::_update_mode() {
+	// Meta streams pick what they play each time, so they have no waveform or position to show. Each playback goes through
+	// the logic of the stream, e.g. the random stream, pitch and volume of AudioStreamRandomizer.
+	_compact = stream.is_valid() && (stream->is_meta_stream() || stream->get_length() <= 0);
+	_preview->set_visible(!_compact);
+	_current_label->set_visible(!_compact);
+	_duration_label->set_visible(!_compact);
+	set_custom_minimum_size(_compact ? Size2() : Size2(1, 100) * EDSCALE);
+	if (_compact) {
+		_current = 0;
+	} else {
+		_duration_label->set_text(String::num(stream->get_length(), 2).pad_decimals(2) + "s");
+	}
+}
+
 void AudioStreamEditor::_play() {
+	if (_compact) {
+		// A new playback each time, instead of resuming one.
+		if (_player->is_playing()) {
+			_stop();
+		} else {
+			_player->play();
+			_play_button->set_button_icon(get_editor_theme_icon(SNAME("Stop")));
+			set_process(true);
+		}
+		return;
+	}
 	if (_player->is_playing()) {
 		_pausing = true;
 		_player->stop();
@@ -152,7 +180,7 @@ void AudioStreamEditor::_on_finished() {
 }
 
 void AudioStreamEditor::_draw_indicator() {
-	if (stream.is_null()) {
+	if (stream.is_null() || _compact) {
 		return;
 	}
 
@@ -188,6 +216,9 @@ void AudioStreamEditor::_on_input_indicator(Ref<InputEvent> p_event) {
 }
 
 void AudioStreamEditor::_seek_to(real_t p_x) {
+	if (_compact) {
+		return;
+	}
 	_current = p_x / _preview->get_rect().size.x * stream->get_length();
 	_current = CLAMP(_current, 0, stream->get_length());
 	_player->seek(_current);
@@ -208,9 +239,7 @@ void AudioStreamEditor::set_stream(const Ref<AudioStream> &p_stream) {
 
 	_player->set_stream(stream);
 	_current = 0;
-
-	String text = String::num(stream->get_length(), 2).pad_decimals(2) + "s";
-	_duration_label->set_text(text);
+	_update_mode();
 
 	queue_redraw();
 }
@@ -269,7 +298,8 @@ AudioStreamEditor::AudioStreamEditor() {
 // EditorInspectorPluginAudioStream
 
 bool EditorInspectorPluginAudioStream::can_handle(Object *p_object) {
-	return Object::cast_to<AudioStreamWAV>(p_object) != nullptr;
+	// Any stream can be played, meta streams in the compact mode of the editor.
+	return Object::cast_to<AudioStream>(p_object) != nullptr;
 }
 
 void EditorInspectorPluginAudioStream::parse_begin(Object *p_object) {
