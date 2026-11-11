@@ -214,7 +214,7 @@ class TextServerFallback : public TextServerExtension {
 
 	struct FontFallbackLinkedVariation {
 		RID base_font;
-		int extra_spacing[4] = { 0, 0, 0, 0 };
+		int extra_spacing[SPACING_MAX] = {};
 		double baseline_offset = 0.0;
 	};
 
@@ -246,7 +246,7 @@ class TextServerFallback : public TextServerExtension {
 		String style_name;
 		int weight = 400;
 		int stretch = 100;
-		int extra_spacing[4] = { 0, 0, 0, 0 };
+		int extra_spacing[SPACING_MAX] = {};
 		double baseline_offset = 0.0;
 
 		HashMap<Vector2i, FontForSizeFallback *> cache;
@@ -441,7 +441,11 @@ class TextServerFallback : public TextServerExtension {
 		double descent = 0.0; // Descent for horizontal layout, 1/2 of width for vertical.
 		double width = 0.0; // Width for horizontal layout, height for vertical.
 		double width_trimmed = 0.0;
-		int extra_spacing[4] = { 0, 0, 0, 0 };
+		int extra_spacing[SPACING_MAX] = {};
+		int edge_first_glyph = -1; // Glyph holding the spacing at the start of the line.
+		int edge_last_glyph = -1; // Glyph holding the spacing at the end of the line.
+		double edge_left = 0.0;
+		double edge_right = 0.0;
 
 		double upos = 0.0;
 		double uthk = 0.0;
@@ -489,11 +493,11 @@ class TextServerFallback : public TextServerExtension {
 		Dictionary variation_coordinates;
 		double embolden = 0.0;
 		Transform2D transform;
-		int extra_spacing[4] = { 0, 0, 0, 0 };
+		int extra_spacing[SPACING_MAX] = {};
 		double baseline_offset = 0.0;
 
 		bool operator==(const SystemFontKey &p_b) const {
-			return (font_name == p_b.font_name) && (antialiasing == p_b.antialiasing) && (outline_mode == p_b.outline_mode) && (italic == p_b.italic) && (disable_embedded_bitmaps == p_b.disable_embedded_bitmaps) && (mipmaps == p_b.mipmaps) && (msdf == p_b.msdf) && (force_autohinter == p_b.force_autohinter) && (weight == p_b.weight) && (stretch == p_b.stretch) && (msdf_range == p_b.msdf_range) && (msdf_source_size == p_b.msdf_source_size) && (fixed_size == p_b.fixed_size) && (hinting == p_b.hinting) && (subpixel_positioning == p_b.subpixel_positioning) && (keep_rounding_remainders == p_b.keep_rounding_remainders) && (variation_coordinates == p_b.variation_coordinates) && (embolden == p_b.embolden) && (transform == p_b.transform) && (extra_spacing[SPACING_TOP] == p_b.extra_spacing[SPACING_TOP]) && (extra_spacing[SPACING_BOTTOM] == p_b.extra_spacing[SPACING_BOTTOM]) && (extra_spacing[SPACING_SPACE] == p_b.extra_spacing[SPACING_SPACE]) && (extra_spacing[SPACING_GLYPH] == p_b.extra_spacing[SPACING_GLYPH]) && (baseline_offset == p_b.baseline_offset);
+			return (font_name == p_b.font_name) && (antialiasing == p_b.antialiasing) && (outline_mode == p_b.outline_mode) && (italic == p_b.italic) && (disable_embedded_bitmaps == p_b.disable_embedded_bitmaps) && (mipmaps == p_b.mipmaps) && (msdf == p_b.msdf) && (force_autohinter == p_b.force_autohinter) && (weight == p_b.weight) && (stretch == p_b.stretch) && (msdf_range == p_b.msdf_range) && (msdf_source_size == p_b.msdf_source_size) && (fixed_size == p_b.fixed_size) && (hinting == p_b.hinting) && (subpixel_positioning == p_b.subpixel_positioning) && (keep_rounding_remainders == p_b.keep_rounding_remainders) && (variation_coordinates == p_b.variation_coordinates) && (embolden == p_b.embolden) && (transform == p_b.transform) && (extra_spacing[SPACING_TOP] == p_b.extra_spacing[SPACING_TOP]) && (extra_spacing[SPACING_BOTTOM] == p_b.extra_spacing[SPACING_BOTTOM]) && (extra_spacing[SPACING_SPACE] == p_b.extra_spacing[SPACING_SPACE]) && (extra_spacing[SPACING_GLYPH] == p_b.extra_spacing[SPACING_GLYPH]) && (extra_spacing[SPACING_LEFT] == p_b.extra_spacing[SPACING_LEFT]) && (extra_spacing[SPACING_RIGHT] == p_b.extra_spacing[SPACING_RIGHT]) && (baseline_offset == p_b.baseline_offset);
 		}
 
 		SystemFontKey(const String &p_font_name, bool p_italic, int p_weight, int p_stretch, RID p_font, const TextServerFallback *p_fb) {
@@ -520,6 +524,8 @@ class TextServerFallback : public TextServerExtension {
 			extra_spacing[SPACING_BOTTOM] = p_fb->_font_get_spacing(p_font, SPACING_BOTTOM);
 			extra_spacing[SPACING_SPACE] = p_fb->_font_get_spacing(p_font, SPACING_SPACE);
 			extra_spacing[SPACING_GLYPH] = p_fb->_font_get_spacing(p_font, SPACING_GLYPH);
+			extra_spacing[SPACING_LEFT] = p_fb->_font_get_spacing(p_font, SPACING_LEFT);
+			extra_spacing[SPACING_RIGHT] = p_fb->_font_get_spacing(p_font, SPACING_RIGHT);
 			baseline_offset = p_fb->_font_get_baseline_offset(p_font);
 		}
 	};
@@ -552,6 +558,8 @@ class TextServerFallback : public TextServerExtension {
 			hash = hash_murmur3_one_32(p_a.extra_spacing[SPACING_BOTTOM], hash);
 			hash = hash_murmur3_one_32(p_a.extra_spacing[SPACING_SPACE], hash);
 			hash = hash_murmur3_one_32(p_a.extra_spacing[SPACING_GLYPH], hash);
+			hash = hash_murmur3_one_32(p_a.extra_spacing[SPACING_LEFT], hash);
+			hash = hash_murmur3_one_32(p_a.extra_spacing[SPACING_RIGHT], hash);
 			hash = hash_murmur3_one_double(p_a.baseline_offset, hash);
 			return hash_fmix32(hash_murmur3_one_32(((int)p_a.mipmaps) | ((int)p_a.msdf << 1) | ((int)p_a.italic << 2) | ((int)p_a.force_autohinter << 3) | ((int)p_a.hinting << 4) | ((int)p_a.subpixel_positioning << 8) | ((int)p_a.antialiasing << 12) | ((int)p_a.disable_embedded_bitmaps << 14) | ((int)p_a.keep_rounding_remainders << 15) | ((int)p_a.outline_mode << 16), hash));
 		}
@@ -561,6 +569,13 @@ class TextServerFallback : public TextServerExtension {
 
 	void _generate_runs(ShapedTextDataFallback *p_sd) const;
 	void _realign(ShapedTextDataFallback *p_sd) const;
+	RID _main_font(const ShapedTextDataFallback *p_root) const;
+	double _main_spacing(const ShapedTextDataFallback *p_root, SpacingType p_spacing) const;
+	double _glyph_extra_spacing(const ShapedTextDataFallback *p_root, const Glyph &p_glyph) const;
+	int _last_advancing_glyph(const ShapedTextDataFallback *p_sd) const;
+	void _add_object_spacing(ShapedTextDataFallback *p_sd) const;
+	void _apply_line_spacing(ShapedTextDataFallback *p_sd, const ShapedTextDataFallback *p_root) const;
+	void _place_objects(ShapedTextDataFallback *p_sd, const Vector<ShapedTextDataFallback::Span> &p_spans) const;
 	_FORCE_INLINE_ RID _find_sys_font_for_text(const RID &p_fdef, const String &p_script_code, const String &p_language, const String &p_text);
 
 	Mutex ft_mutex;

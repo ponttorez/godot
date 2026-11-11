@@ -109,6 +109,7 @@ protected:
 	RID _find_variation_bind_compat_80954(const Dictionary &p_variation_coordinates, int p_face_index = 0, float p_strength = 0.0, Transform2D p_transform = Transform2D()) const;
 	RID _find_variation_bind_compat_87668(const Dictionary &p_variation_coordinates, int p_face_index = 0, float p_strength = 0.0, Transform2D p_transform = Transform2D(), int p_spacing_top = 0, int p_spacing_bottom = 0, int p_spacing_space = 0, int p_spacing_glyph = 0) const;
 	RID _find_variation_bind_compat_117149(const Dictionary &p_variation_coordinates, int p_face_index = 0, float p_strength = 0.0, Transform2D p_transform = Transform2D(), int p_spacing_top = 0, int p_spacing_bottom = 0, int p_spacing_space = 0, int p_spacing_glyph = 0, float p_baseline_offset = 0.0) const;
+	RID _find_variation_bind_compat_desktop_line_spacing(const Dictionary &p_variation_coordinates, int p_face_index = 0, float p_strength = 0.0, Transform2D p_transform = Transform2D(), int p_spacing_top = 0, int p_spacing_bottom = 0, int p_spacing_space = 0, int p_spacing_glyph = 0, float p_baseline_offset = 0.0, int64_t p_palette_index = 0, const Vector<Color> &p_custom_colors = Vector<Color>()) const;
 	static void _bind_compatibility_methods();
 #endif
 
@@ -124,7 +125,7 @@ public:
 	virtual TypedArray<Font> get_fallbacks() const;
 
 	// Output.
-	virtual RID find_variation(const Dictionary &p_variation_coordinates, int p_face_index = 0, float p_strength = 0.0, Transform2D p_transform = Transform2D(), int p_spacing_top = 0, int p_spacing_bottom = 0, int p_spacing_space = 0, int p_spacing_glyph = 0, float p_baseline_offset = 0.0, int64_t p_palette_index = 0, const Vector<Color> &p_custom_colors = Vector<Color>()) const { return RID(); }
+	virtual RID find_variation(const Dictionary &p_variation_coordinates, int p_face_index = 0, float p_strength = 0.0, Transform2D p_transform = Transform2D(), int p_spacing_top = 0, int p_spacing_bottom = 0, int p_spacing_space = 0, int p_spacing_glyph = 0, float p_baseline_offset = 0.0, int64_t p_palette_index = 0, const Vector<Color> &p_custom_colors = Vector<Color>(), int p_spacing_left = 0, int p_spacing_right = 0) const { return RID(); }
 	virtual RID _get_rid() const { return RID(); }
 	virtual TypedArray<RID> get_rids() const;
 
@@ -309,7 +310,7 @@ public:
 	virtual real_t get_oversampling() const;
 
 	// Cache.
-	virtual RID find_variation(const Dictionary &p_variation_coordinates, int p_face_index = 0, float p_strength = 0.0, Transform2D p_transform = Transform2D(), int p_spacing_top = 0, int p_spacing_bottom = 0, int p_spacing_space = 0, int p_spacing_glyph = 0, float p_baseline_offset = 0.0, int64_t p_palette_index = 0, const Vector<Color> &p_custom_colors = Vector<Color>()) const override;
+	virtual RID find_variation(const Dictionary &p_variation_coordinates, int p_face_index = 0, float p_strength = 0.0, Transform2D p_transform = Transform2D(), int p_spacing_top = 0, int p_spacing_bottom = 0, int p_spacing_space = 0, int p_spacing_glyph = 0, float p_baseline_offset = 0.0, int64_t p_palette_index = 0, const Vector<Color> &p_custom_colors = Vector<Color>(), int p_spacing_left = 0, int p_spacing_right = 0) const override;
 	virtual RID _get_rid() const override;
 
 	virtual int get_cache_count() const;
@@ -480,7 +481,7 @@ public:
 	virtual void set_palette_custom_colors(const Vector<Color> &p_colors);
 
 	// Output.
-	virtual RID find_variation(const Dictionary &p_variation_coordinates, int p_face_index = 0, float p_strength = 0.0, Transform2D p_transform = Transform2D(), int p_spacing_top = 0, int p_spacing_bottom = 0, int p_spacing_space = 0, int p_spacing_glyph = 0, float p_baseline_offset = 0.0, int64_t p_palette_index = 0, const Vector<Color> &p_custom_colors = Vector<Color>()) const override;
+	virtual RID find_variation(const Dictionary &p_variation_coordinates, int p_face_index = 0, float p_strength = 0.0, Transform2D p_transform = Transform2D(), int p_spacing_top = 0, int p_spacing_bottom = 0, int p_spacing_space = 0, int p_spacing_glyph = 0, float p_baseline_offset = 0.0, int64_t p_palette_index = 0, const Vector<Color> &p_custom_colors = Vector<Color>(), int p_spacing_left = 0, int p_spacing_right = 0) const override;
 	virtual RID _get_rid() const override;
 
 	FontVariation();
@@ -590,7 +591,7 @@ public:
 
 	virtual int get_spacing(TextServer::SpacingType p_spacing) const override;
 
-	virtual RID find_variation(const Dictionary &p_variation_coordinates, int p_face_index = 0, float p_strength = 0.0, Transform2D p_transform = Transform2D(), int p_spacing_top = 0, int p_spacing_bottom = 0, int p_spacing_space = 0, int p_spacing_glyph = 0, float p_baseline_offset = 0.0, int64_t p_palette_index = 0, const Vector<Color> &p_custom_colors = Vector<Color>()) const override;
+	virtual RID find_variation(const Dictionary &p_variation_coordinates, int p_face_index = 0, float p_strength = 0.0, Transform2D p_transform = Transform2D(), int p_spacing_top = 0, int p_spacing_bottom = 0, int p_spacing_space = 0, int p_spacing_glyph = 0, float p_baseline_offset = 0.0, int64_t p_palette_index = 0, const Vector<Color> &p_custom_colors = Vector<Color>(), int p_spacing_left = 0, int p_spacing_right = 0) const override;
 	virtual RID _get_rid() const override;
 
 	int64_t get_face_count() const override;

@@ -2363,7 +2363,7 @@
 			Contour point isn't on the curve, but serves as a control point for a cubic Bézier arc.
 		</constant>
 		<constant name="SPACING_GLYPH" value="0" enum="SpacingType">
-			Spacing for each glyph.
+			Spacing between neighboring elements of a line: glyphs and embedded objects such as inline images. It is not added after the last element of a line, so it never changes the space at the line's ends.
 		</constant>
 		<constant name="SPACING_SPACE" value="1" enum="SpacingType">
 			Spacing for the space character.
@@ -2374,7 +2374,13 @@
 		<constant name="SPACING_BOTTOM" value="3" enum="SpacingType">
 			Spacing at the bottom of the line.
 		</constant>
-		<constant name="SPACING_MAX" value="4" enum="SpacingType">
+		<constant name="SPACING_LEFT" value="4" enum="SpacingType">
+			Spacing at the start of each line, before its first glyph or embedded object.
+		</constant>
+		<constant name="SPACING_RIGHT" value="5" enum="SpacingType">
+			Spacing at the end of each line, after its last glyph or embedded object.
+		</constant>
+		<constant name="SPACING_MAX" value="6" enum="SpacingType">
 			Represents the size of the [enum SpacingType] enum.
 		</constant>
 		<constant name="FONT_BOLD" value="1" enum="FontStyle" is_bitfield="true">

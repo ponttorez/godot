@@ -1741,7 +1741,7 @@ double TextServerFallback::_font_get_embolden(const RID &p_font_rid) const {
 }
 
 void TextServerFallback::_font_set_spacing(const RID &p_font_rid, SpacingType p_spacing, int64_t p_value) {
-	ERR_FAIL_INDEX((int)p_spacing, 4);
+	ERR_FAIL_INDEX((int)p_spacing, SPACING_MAX);
 	FontFallbackLinkedVariation *fdv = font_var_owner.get_or_null(p_font_rid);
 	if (fdv) {
 		if (fdv->extra_spacing[p_spacing] != p_value) {
@@ -1760,7 +1760,7 @@ void TextServerFallback::_font_set_spacing(const RID &p_font_rid, SpacingType p_
 }
 
 int64_t TextServerFallback::_font_get_spacing(const RID &p_font_rid, SpacingType p_spacing) const {
-	ERR_FAIL_INDEX_V((int)p_spacing, 4, 0);
+	ERR_FAIL_INDEX_V((int)p_spacing, SPACING_MAX, 0);
 	FontFallbackLinkedVariation *fdv = font_var_owner.get_or_null(p_font_rid);
 	if (fdv) {
 		return fdv->extra_spacing[p_spacing];
@@ -3608,7 +3608,7 @@ bool TextServerFallback::_shaped_text_get_preserve_control(const RID &p_shaped) 
 }
 
 void TextServerFallback::_shaped_text_set_spacing(const RID &p_shaped, SpacingType p_spacing, int64_t p_value) {
-	ERR_FAIL_INDEX((int)p_spacing, 4);
+	ERR_FAIL_INDEX((int)p_spacing, SPACING_MAX);
 	ShapedTextDataFallback *sd = shaped_owner.get_or_null(p_shaped);
 	ERR_FAIL_NULL(sd);
 
@@ -3623,7 +3623,7 @@ void TextServerFallback::_shaped_text_set_spacing(const RID &p_shaped, SpacingTy
 }
 
 int64_t TextServerFallback::_shaped_text_get_spacing(const RID &p_shaped, SpacingType p_spacing) const {
-	ERR_FAIL_INDEX_V((int)p_spacing, 4, 0);
+	ERR_FAIL_INDEX_V((int)p_spacing, SPACING_MAX, 0);
 
 	const ShapedTextDataFallback *sd = shaped_owner.get_or_null(p_shaped);
 	ERR_FAIL_NULL_V(sd, 0);
@@ -4026,6 +4026,7 @@ bool TextServerFallback::_shaped_text_resize_object(const RID &p_shaped, const V
 
 	MutexLock lock(sd->mutex);
 	ERR_FAIL_COND_V(!sd->objects.has(p_key), false);
+	Size2 old_size = sd->objects[p_key].rect.size;
 	sd->objects[p_key].rect.size = p_size;
 	sd->objects[p_key].inline_align = p_inline_align;
 	sd->objects[p_key].baseline = p_baseline;
@@ -4054,15 +4055,10 @@ bool TextServerFallback::_shaped_text_resize_object(const RID &p_shaped, const V
 				key = spans[gl.span_index + sd->first_span].embedded_key;
 			}
 			if (key != Variant()) {
-				if (sd->orientation == ORIENTATION_HORIZONTAL) {
-					sd->objects[key].rect.position.x = sd->width;
-					sd->width += sd->objects[key].rect.size.x;
-					sd->glyphs.write[i].advance = sd->objects[key].rect.size.x;
-				} else {
-					sd->objects[key].rect.position.y = sd->width;
-					sd->width += sd->objects[key].rect.size.y;
-					sd->glyphs.write[i].advance = sd->objects[key].rect.size.y;
+				if (key == p_key) {
+					sd->glyphs.write[i].advance += (sd->orientation == ORIENTATION_HORIZONTAL) ? (p_size.x - old_size.x) : (p_size.y - old_size.y);
 				}
+				sd->width += sd->glyphs[i].advance;
 			} else {
 				if (gl.font_rid.is_valid()) {
 					if (sd->orientation == ORIENTATION_HORIZONTAL) {
@@ -4087,9 +4083,134 @@ bool TextServerFallback::_shaped_text_resize_object(const RID &p_shaped, const V
 				sd->width += gl.advance * gl.repeat;
 			}
 		}
+		_place_objects(sd, spans);
 		_realign(sd);
 	}
 	return true;
+}
+
+RID TextServerFallback::_main_font(const ShapedTextDataFallback *p_root) const {
+	for (const ShapedTextDataFallback::Span &span : p_root->spans) {
+		if (!span.fonts.is_empty()) {
+			return span.fonts[0];
+		}
+	}
+	return RID();
+}
+
+double TextServerFallback::_main_spacing(const ShapedTextDataFallback *p_root, SpacingType p_spacing) const {
+	double spacing = p_root->extra_spacing[p_spacing];
+	RID font = _main_font(p_root);
+	if (font.is_valid()) {
+		spacing += _font_get_spacing(font, p_spacing);
+	}
+	return spacing;
+}
+
+double TextServerFallback::_glyph_extra_spacing(const ShapedTextDataFallback *p_root, const Glyph &p_glyph) const {
+	// Spacing added after a glyph when the text was shaped, see _shaped_text_shape() and _add_object_spacing().
+	if ((p_glyph.flags & GRAPHEME_IS_EMBEDDED_OBJECT) == GRAPHEME_IS_EMBEDDED_OBJECT) {
+		return _main_spacing(p_root, SPACING_GLYPH);
+	}
+	if (!p_glyph.font_rid.is_valid() || Math::is_zero_approx(p_glyph.advance)) {
+		return 0.0;
+	}
+	int pos = p_glyph.start - p_root->start;
+	if (pos < 0 || pos >= p_root->text.length()) {
+		return 0.0;
+	}
+	if (is_whitespace(p_root->text[pos])) {
+		return p_root->extra_spacing[SPACING_SPACE] + _font_get_spacing(p_glyph.font_rid, SPACING_SPACE);
+	}
+	return p_root->extra_spacing[SPACING_GLYPH] + _font_get_spacing(p_glyph.font_rid, SPACING_GLYPH);
+}
+
+int TextServerFallback::_last_advancing_glyph(const ShapedTextDataFallback *p_sd) const {
+	for (int i = (int)p_sd->glyphs.size() - 1; i >= 0; i--) {
+		if (!Math::is_zero_approx(p_sd->glyphs[i].advance)) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+void TextServerFallback::_add_object_spacing(ShapedTextDataFallback *p_sd) const {
+	// Embedded objects are separated from their neighbors like glyphs, except after the last element of the text.
+	double spacing = _main_spacing(p_sd, SPACING_GLYPH);
+	if (Math::is_zero_approx(spacing)) {
+		return;
+	}
+	int last = _last_advancing_glyph(p_sd);
+	for (int i = 0; i < (int)p_sd->glyphs.size(); i++) {
+		Glyph &gl = p_sd->glyphs.write[i];
+		if ((gl.flags & GRAPHEME_IS_EMBEDDED_OBJECT) == GRAPHEME_IS_EMBEDDED_OBJECT && i != last) {
+			gl.advance += spacing;
+			p_sd->width += spacing;
+		}
+	}
+}
+
+void TextServerFallback::_apply_line_spacing(ShapedTextDataFallback *p_sd, const ShapedTextDataFallback *p_root) const {
+	p_sd->edge_first_glyph = -1;
+	p_sd->edge_last_glyph = -1;
+	p_sd->edge_left = 0.0;
+	p_sd->edge_right = 0.0;
+	if (p_sd->glyphs.is_empty()) {
+		return;
+	}
+	Glyph *gl = p_sd->glyphs.ptrw();
+	int last = _last_advancing_glyph(p_sd);
+	if (last < 0) {
+		return;
+	}
+	if (p_sd != p_root) {
+		// A line ends here, so the spacing after its last element separates it from nothing.
+		int root_last = _last_advancing_glyph(p_root);
+		bool ends_text = false;
+		if (root_last >= 0) {
+			const Glyph &rl = p_root->glyphs[root_last];
+			ends_text = (gl[last].start == rl.start) && (gl[last].end == rl.end) && (gl[last].index == rl.index) && (gl[last].flags == rl.flags);
+		}
+		if (!ends_text) {
+			double trailing = _glyph_extra_spacing(p_root, gl[last]);
+			gl[last].advance -= trailing;
+			p_sd->width -= trailing;
+		}
+	}
+	double left = _main_spacing(p_root, SPACING_LEFT);
+	double right = _main_spacing(p_root, SPACING_RIGHT);
+	gl[last].advance += right;
+	gl[0].advance += left;
+	if (p_sd->orientation == ORIENTATION_HORIZONTAL) {
+		gl[0].x_off += left;
+	} else {
+		gl[0].y_off += left;
+	}
+	p_sd->width += left + right;
+	p_sd->edge_first_glyph = 0;
+	p_sd->edge_last_glyph = last;
+	p_sd->edge_left = left;
+	p_sd->edge_right = right;
+}
+
+void TextServerFallback::_place_objects(ShapedTextDataFallback *p_sd, const Vector<ShapedTextDataFallback::Span> &p_spans) const {
+	double pen = 0.0;
+	int span_size = p_spans.size();
+	for (int i = 0; i < (int)p_sd->glyphs.size(); i++) {
+		const Glyph &gl = p_sd->glyphs.write[i];
+		if ((gl.flags & GRAPHEME_IS_EMBEDDED_OBJECT) == GRAPHEME_IS_EMBEDDED_OBJECT && gl.span_index + p_sd->first_span >= 0 && gl.span_index + p_sd->first_span < span_size) {
+			Variant key = p_spans[gl.span_index + p_sd->first_span].embedded_key;
+			if (key != Variant() && p_sd->objects.has(key)) {
+				double lead = (i == p_sd->edge_first_glyph) ? p_sd->edge_left : 0.0;
+				if (p_sd->orientation == ORIENTATION_HORIZONTAL) {
+					p_sd->objects[key].rect.position.x = pen + lead;
+				} else {
+					p_sd->objects[key].rect.position.y = pen + lead;
+				}
+			}
+		}
+		pen += gl.advance * gl.repeat;
+	}
 }
 
 void TextServerFallback::_realign(ShapedTextDataFallback *p_sd) const {
@@ -4225,6 +4346,17 @@ RID TextServerFallback::_shaped_text_substr(const RID &p_shaped, int64_t p_start
 		for (int i = 0; i < sd_size; i++) {
 			if ((sd_glyphs[i].start >= new_sd->start) && (sd_glyphs[i].end <= new_sd->end)) {
 				Glyph gl = sd_glyphs[i];
+				if (i == sd->edge_first_glyph) {
+					gl.advance -= sd->edge_left;
+					if (new_sd->orientation == ORIENTATION_HORIZONTAL) {
+						gl.x_off -= sd->edge_left;
+					} else {
+						gl.y_off -= sd->edge_left;
+					}
+				}
+				if (i == sd->edge_last_glyph) {
+					gl.advance -= sd->edge_right;
+				}
 				if (gl.span_index >= 0) {
 					gl.span_index -= new_sd->first_span;
 				}
@@ -4235,15 +4367,8 @@ RID TextServerFallback::_shaped_text_substr(const RID &p_shaped, int64_t p_start
 				if ((gl.flags & GRAPHEME_IS_EMBEDDED_OBJECT) == GRAPHEME_IS_EMBEDDED_OBJECT && gl.span_index + new_sd->first_span >= 0 && gl.span_index + new_sd->first_span < span_size) {
 					Variant key = sd->spans[gl.span_index + new_sd->first_span].embedded_key;
 					if (key != Variant()) {
-						ShapedTextDataFallback::EmbeddedObject obj = sd->objects[key];
-						if (new_sd->orientation == ORIENTATION_HORIZONTAL) {
-							obj.rect.position.x = new_sd->width;
-							new_sd->width += obj.rect.size.x;
-						} else {
-							obj.rect.position.y = new_sd->width;
-							new_sd->width += obj.rect.size.y;
-						}
-						new_sd->objects[key] = obj;
+						new_sd->objects[key] = sd->objects[key];
+						new_sd->width += gl.advance;
 					}
 				} else {
 					if (gl.font_rid.is_valid()) {
@@ -4274,6 +4399,8 @@ RID TextServerFallback::_shaped_text_substr(const RID &p_shaped, int64_t p_start
 			}
 		}
 
+		_apply_line_spacing(new_sd, sd);
+		_place_objects(new_sd, sd->spans);
 		_realign(new_sd);
 	}
 	new_sd->valid.set();
@@ -4698,6 +4825,8 @@ RID TextServerFallback::_find_sys_font_for_text(const RID &p_fdef, const String 
 				_font_set_spacing(sysf.rid, SPACING_BOTTOM, key.extra_spacing[SPACING_BOTTOM]);
 				_font_set_spacing(sysf.rid, SPACING_SPACE, key.extra_spacing[SPACING_SPACE]);
 				_font_set_spacing(sysf.rid, SPACING_GLYPH, key.extra_spacing[SPACING_GLYPH]);
+				_font_set_spacing(sysf.rid, SPACING_LEFT, key.extra_spacing[SPACING_LEFT]);
+				_font_set_spacing(sysf.rid, SPACING_RIGHT, key.extra_spacing[SPACING_RIGHT]);
 
 				if (system_fonts.has(key)) {
 					system_fonts[key].var.push_back(sysf);
@@ -5127,6 +5256,9 @@ bool TextServerFallback::_shaped_text_shape(const RID &p_shaped) {
 		}
 	}
 
+	_add_object_spacing(sd);
+	_apply_line_spacing(sd, sd);
+	_place_objects(sd, sd->spans);
 	// Align embedded objects to baseline.
 	_realign(sd);
 
