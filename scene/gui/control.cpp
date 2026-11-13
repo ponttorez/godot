@@ -1594,6 +1594,36 @@ Rect2 Control::get_global_rect() const {
 	return Rect2(xform.get_origin(), xform.get_scale() * get_size());
 }
 
+Rect2 Control::_get_built_in_focus_rect() const {
+	return Rect2(Point2(), get_size());
+}
+
+Rect2 Control::get_focus_rect() const {
+	ERR_READ_THREAD_GUARD_V(Rect2());
+	Rect2 ret;
+	if (GDVIRTUAL_CALL(_get_focus_rect, ret)) {
+		return ret;
+	}
+	return _get_built_in_focus_rect();
+}
+
+Rect2 Control::get_visible_focus_rect() const {
+	ERR_READ_THREAD_GUARD_V(Rect2());
+	if (!is_inside_tree() || !is_visible_in_tree()) {
+		return Rect2();
+	}
+	Rect2 rect = get_global_transform_with_canvas().xform(get_focus_rect());
+	const CanvasItem *item = this;
+	while (item && !item->is_set_as_top_level()) {
+		item = item->get_parent_item();
+		const Control *clip = Object::cast_to<Control>(item);
+		if (clip && clip->data.clip_contents) {
+			rect = rect.intersection(clip->get_global_transform_with_canvas().xform(Rect2(Point2(), clip->get_size())));
+		}
+	}
+	return rect.has_area() ? rect : Rect2();
+}
+
 Rect2 Control::get_screen_rect() const {
 	ERR_READ_THREAD_GUARD_V(Rect2());
 	ERR_FAIL_COND_V(!is_inside_tree(), Rect2());
@@ -4763,6 +4793,8 @@ void Control::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_screen_position"), &Control::get_screen_position);
 	ClassDB::bind_method(D_METHOD("get_rect"), &Control::get_rect);
 	ClassDB::bind_method(D_METHOD("get_global_rect"), &Control::get_global_rect);
+	ClassDB::bind_method(D_METHOD("get_focus_rect"), &Control::get_focus_rect);
+	ClassDB::bind_method(D_METHOD("get_visible_focus_rect"), &Control::get_visible_focus_rect);
 
 	ClassDB::bind_method(D_METHOD("set_focus_mode", "mode"), &Control::set_focus_mode);
 	ClassDB::bind_method(D_METHOD("get_focus_mode"), &Control::get_focus_mode);
@@ -5189,6 +5221,7 @@ void Control::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("theme_changed"));
 
 	GDVIRTUAL_BIND(_has_point, "point");
+	GDVIRTUAL_BIND(_get_focus_rect);
 	GDVIRTUAL_BIND(_structured_text_parser, "args", "text");
 	GDVIRTUAL_BIND(_get_maximum_size);
 	GDVIRTUAL_BIND(_get_minimum_size);

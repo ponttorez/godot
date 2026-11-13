@@ -1829,6 +1829,22 @@ void TreeItem::call_recursive(const StringName &p_method, const Variant **p_args
 	recursive_call_aux(this, p_method, p_args, p_argcount, r_error);
 }
 
+Rect2 Tree::_get_built_in_focus_rect() const {
+	if (!selected_item || selected_col < 0 || selected_col >= selected_item->cells.size()) {
+		return Control::_get_built_in_focus_rect();
+	}
+	const Rect2 content_rect = _get_content_rect();
+	Rect2 rect;
+	if (select_mode == SELECT_ROW) {
+		const Rect2 cell = selected_item->cells[selected_col].focus_rect;
+		rect = Rect2(content_rect.position.x, cell.position.y, content_rect.size.x, cell.size.y);
+	} else {
+		rect = selected_item->focus_rect;
+	}
+	rect = Rect2(convert_rtl_rect(Rect2i(rect))).intersection(content_rect);
+	return rect.has_area() ? rect : Control::_get_built_in_focus_rect();
+}
+
 void TreeItem::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_cell_mode", "column", "mode"), &TreeItem::set_cell_mode);
 	ClassDB::bind_method(D_METHOD("get_cell_mode", "column"), &TreeItem::get_cell_mode);

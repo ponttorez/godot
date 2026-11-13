@@ -2924,6 +2924,16 @@ int PopupMenu::get_focused_item() const {
 	return mouse_over;
 }
 
+Rect2 PopupMenu::get_focused_item_rect() const {
+	if (mouse_over < 0 || mouse_over >= items.size() || !control->is_inside_tree()) {
+		return Rect2();
+	}
+	const Item &item = items[mouse_over];
+	const Rect2 rect(Point2(0, item._ofs_cache - theme_cache.v_separation / 2), Size2(control->get_size().width, item._height_cache + theme_cache.v_separation));
+	const Rect2 list_rect = scroll_container->get_global_transform_with_canvas().xform(Rect2(Point2(), scroll_container->get_size()));
+	return control->get_global_transform_with_canvas().xform(rect).intersection(list_rect);
+}
+
 void PopupMenu::set_item_count(int p_count) {
 	ERR_FAIL_COND(p_count < 0);
 	int prev_size = items.size();
@@ -3478,6 +3488,7 @@ void PopupMenu::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_focused_item", "index"), &PopupMenu::set_focused_item);
 	ClassDB::bind_method(D_METHOD("get_focused_item"), &PopupMenu::get_focused_item);
+	ClassDB::bind_method(D_METHOD("get_focused_item_rect"), &PopupMenu::get_focused_item_rect);
 	ClassDB::bind_method(D_METHOD("set_item_count", "count"), &PopupMenu::set_item_count);
 	ClassDB::bind_method(D_METHOD("get_item_count"), &PopupMenu::get_item_count);
 

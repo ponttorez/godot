@@ -2155,6 +2155,13 @@ bool TabBar::get_deselect_enabled() const {
 	return deselect_enabled;
 }
 
+Rect2 TabBar::_get_built_in_focus_rect() const {
+	if (current < 0 || current >= tabs.size() || tabs[current].hidden) {
+		return Control::_get_built_in_focus_rect();
+	}
+	return get_tab_rect(current).intersection(Rect2(Point2(), get_size()));
+}
+
 void TabBar::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_tab_count", "count"), &TabBar::set_tab_count);
 	ClassDB::bind_method(D_METHOD("get_tab_count"), &TabBar::get_tab_count);

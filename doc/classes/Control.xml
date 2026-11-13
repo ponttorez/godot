@@ -125,6 +125,12 @@
 				[/codeblocks]
 			</description>
 		</method>
+		<method name="_get_focus_rect" qualifiers="virtual const">
+			<return type="Rect2" />
+			<description>
+				Virtual method to be implemented by the user. Returns the part of this control that has the focus, in its local coordinates. When not overridden, [method get_focus_rect] returns the part the control itself focuses.
+			</description>
+		</method>
 		<method name="_get_maximum_size" qualifiers="virtual const">
 			<return type="Vector2" />
 			<description>
@@ -481,6 +487,13 @@
 				[b]Note:[/b] To find the next [Control] on the specific [enum Side], even if a neighbor is not assigned, use [method find_valid_focus_neighbor].
 			</description>
 		</method>
+		<method name="get_focus_rect" qualifiers="const">
+			<return type="Rect2" />
+			<description>
+				Returns the part of this control that has the focus, in its local coordinates: the current tab of a [TabBar], the current item of an [ItemList], the selected cell or row of a [Tree], the focused menu of a [MenuBar], the whole [SpinBox] for its field, and the whole control for the others. Can be overridden with [method _get_focus_rect].
+				[b]Note:[/b] The rectangle may reach outside the control.
+			</description>
+		</method>
 		<method name="get_global_rect" qualifiers="const">
 			<return type="Rect2" />
 			<description>
@@ -658,6 +671,12 @@
 				Returns the tooltip text for the position [param at_position] in the control's local coordinates, which will typically appear when the cursor is resting over this control. By default, it returns [member tooltip_text].
 				You can override [method _get_tooltip] to implement custom behavior for this method.
 				[b]Note:[/b] If this method returns an empty [String] and [method _make_custom_tooltip] is not overridden, no tooltip is displayed.
+			</description>
+		</method>
+		<method name="get_visible_focus_rect" qualifiers="const">
+			<return type="Rect2" />
+			<description>
+				Returns the visible part of [method get_focus_rect] in the coordinates of the viewport's canvas (see [method CanvasItem.get_global_transform_with_canvas]), cut by every parent control that clips its contents. Returns an empty [Rect2] when nothing of it is visible.
 			</description>
 		</method>
 		<method name="grab_click_focus">

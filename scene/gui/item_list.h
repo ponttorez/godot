@@ -160,6 +160,7 @@ private:
 	String _atr(int p_idx, const String &p_text) const;
 
 protected:
+	virtual Rect2 _get_built_in_focus_rect() const override;
 	struct ThemeCache {
 		int h_separation = 0;
 		int v_separation = 0;

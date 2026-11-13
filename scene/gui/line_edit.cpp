@@ -42,6 +42,7 @@
 #include "core/os/os.h"
 #include "core/string/alt_codes.h"
 #include "scene/gui/label.h"
+#include "scene/gui/spin_box.h"
 #include "scene/main/window.h"
 #include "scene/theme/theme_db.h"
 #include "servers/display/accessibility_server.h"
@@ -3334,6 +3335,15 @@ void LineEdit::_validate_property(PropertyInfo &p_property) const {
 	} else if (icon_expand_mode != EXPAND_MODE_FIT_TO_LINE_EDIT && p_property.name == "right_icon_scale") {
 		p_property.usage = PROPERTY_USAGE_NO_EDITOR;
 	}
+}
+
+Rect2 LineEdit::_get_built_in_focus_rect() const {
+	// The field of a SpinBox has the focus for the whole box, arrows included.
+	const SpinBox *spin_box = Object::cast_to<SpinBox>(get_parent());
+	if (spin_box && const_cast<SpinBox *>(spin_box)->get_line_edit() == this) {
+		return (get_global_transform().affine_inverse() * spin_box->get_global_transform()).xform(Rect2(Point2(), spin_box->get_size()));
+	}
+	return Control::_get_built_in_focus_rect();
 }
 
 void LineEdit::_bind_methods() {

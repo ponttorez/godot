@@ -470,9 +470,13 @@ protected:
 	virtual void add_child_notify(Node *p_child) override;
 	virtual void remove_child_notify(Node *p_child) override;
 
+	// The part of the control that has the focus, in local coordinates: the whole control unless a control focuses a part of itself.
+	virtual Rect2 _get_built_in_focus_rect() const;
+
 	// Exposed virtual methods.
 
 	GDVIRTUAL1RC(bool, _has_point, Vector2)
+	GDVIRTUAL0RC(Rect2, _get_focus_rect)
 	GDVIRTUAL2RC(TypedArray<Vector3i>, _structured_text_parser, Array, String)
 	GDVIRTUAL0RC(Vector2, _get_maximum_size)
 	GDVIRTUAL0RC(Vector2, _get_minimum_size)
@@ -601,6 +605,9 @@ public:
 	Rect2 get_global_rect() const;
 	Rect2 get_screen_rect() const;
 	Rect2 get_anchorable_rect() const override;
+
+	Rect2 get_focus_rect() const;
+	Rect2 get_visible_focus_rect() const;
 
 	void set_scale(const Vector2 &p_scale);
 	Vector2 get_scale() const;

@@ -276,6 +276,7 @@ private:
 	Point2 _get_right_icon_size(Ref<Texture2D> p_right_icon) const;
 
 protected:
+	virtual Rect2 _get_built_in_focus_rect() const override;
 	bool _is_over_clear_button(const Point2 &p_pos) const;
 
 	virtual void _update_theme_item_cache() override;

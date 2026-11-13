@@ -2302,6 +2302,30 @@ bool ItemList::_set(const StringName &p_name, const Variant &p_value) {
 	return false;
 }
 
+Rect2 ItemList::_get_built_in_focus_rect() const {
+	if (current < 0 || current >= items.size()) {
+		return Control::_get_built_in_focus_rect();
+	}
+	const Size2 size = get_size();
+	Rect2 rect = items[current].rect_cache;
+	if (current_columns == 1) {
+		float width = size.width - theme_cache.panel_style->get_minimum_size().width;
+		if (scroll_bar_v->is_visible()) {
+			width -= scroll_bar_v->get_bound_minimum_size().width;
+		}
+		rect.size.width = width - rect.position.x;
+	}
+	const bool rtl = is_layout_rtl();
+	Vector2 base_ofs = theme_cache.panel_style->get_offset();
+	base_ofs.y -= int(scroll_bar_v->get_value());
+	base_ofs.x += rtl ? int(scroll_bar_h->get_value()) : -int(scroll_bar_h->get_value());
+	rect.position += base_ofs;
+	if (rtl) {
+		rect.position.x = size.width - rect.position.x - rect.size.x + theme_cache.panel_style->get_margin(SIDE_LEFT) - theme_cache.panel_style->get_margin(SIDE_RIGHT);
+	}
+	return rect.intersection(Rect2(Point2(), size));
+}
+
 void ItemList::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("add_item", "text", "icon", "selectable"), &ItemList::add_item, DEFVAL(Variant()), DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("add_icon_item", "icon", "selectable"), &ItemList::add_icon_item, DEFVAL(true));
