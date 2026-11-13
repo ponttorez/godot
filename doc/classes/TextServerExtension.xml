@@ -377,6 +377,13 @@
 				Returns [Dictionary] with OpenType font name strings (localized font names, version, description, license information, sample text, etc.).
 			</description>
 		</method>
+		<method name="_font_get_outline_mode" qualifiers="virtual const">
+			<return type="int" enum="TextServer.FontOutlineMode" />
+			<param index="0" name="font_rid" type="RID" />
+			<description>
+				Returns how the outlines of the font's glyphs are drawn. See [enum TextServer.FontOutlineMode].
+			</description>
+		</method>
 		<method name="_font_get_oversampling" qualifiers="virtual const">
 			<return type="float" />
 			<param index="0" name="font_rid" type="RID" />
@@ -946,6 +953,14 @@
 			<param index="1" name="overrides" type="Dictionary" />
 			<description>
 				Sets font OpenType feature set override.
+			</description>
+		</method>
+		<method name="_font_set_outline_mode" qualifiers="virtual">
+			<return type="void" />
+			<param index="0" name="font_rid" type="RID" />
+			<param index="1" name="mode" type="int" enum="TextServer.FontOutlineMode" />
+			<description>
+				Sets how the outlines of the font's glyphs are drawn. See [enum TextServer.FontOutlineMode].
 			</description>
 		</method>
 		<method name="_font_set_oversampling" qualifiers="virtual">

@@ -1270,6 +1270,59 @@ _FORCE_INLINE_ TextServerAdvanced::FontGlyph TextServerAdvanced::rasterize_bitma
 	chr.rect.size = chr.uv_rect.size * p_data->scale;
 	return chr;
 }
+
+TextServerAdvanced::FontGlyph TextServerAdvanced::rasterize_pixel_outline(FontForSizeAdvanced *p_data, int p_rect_margin, const FT_Bitmap &p_bitmap, int p_yofs, int p_xofs, int p_radius) const {
+	int w = p_bitmap.width;
+	int h = p_bitmap.rows;
+	if (w == 0 || h == 0 || p_bitmap.buffer == nullptr || p_radius <= 0 || (p_bitmap.pixel_mode != FT_PIXEL_MODE_MONO && p_bitmap.pixel_mode != FT_PIXEL_MODE_GRAY)) {
+		return rasterize_bitmap(p_data, p_rect_margin, p_bitmap, p_yofs, p_xofs, Vector2(), false);
+	}
+
+	int ow = w + p_radius * 2;
+	int oh = h + p_radius * 2;
+	ERR_FAIL_COND_V(ow > 4096 || oh > 4096, FontGlyph());
+
+	LocalVector<uint8_t> coverage;
+	coverage.resize_initialized(ow * oh);
+	for (int i = 0; i < h; i++) {
+		const uint8_t *row = p_bitmap.buffer + i * p_bitmap.pitch;
+		for (int j = 0; j < w; j++) {
+			uint8_t value = (p_bitmap.pixel_mode == FT_PIXEL_MODE_MONO) ? ((row[j >> 3] & (1 << (7 - (j & 7)))) ? 255 : 0) : row[j];
+			coverage[(i + p_radius) * ow + j + p_radius] = value;
+		}
+	}
+
+	// Square dilation, separable: the widest coverage within the radius along rows, then along columns.
+	LocalVector<uint8_t> rows;
+	rows.resize_initialized(ow * oh);
+	for (int i = 0; i < oh; i++) {
+		for (int j = 0; j < ow; j++) {
+			uint8_t value = 0;
+			for (int k = MAX(j - p_radius, 0); k <= MIN(j + p_radius, ow - 1); k++) {
+				value = MAX(value, coverage[i * ow + k]);
+			}
+			rows[i * ow + j] = value;
+		}
+	}
+	for (int i = 0; i < oh; i++) {
+		for (int j = 0; j < ow; j++) {
+			uint8_t value = 0;
+			for (int k = MAX(i - p_radius, 0); k <= MIN(i + p_radius, oh - 1); k++) {
+				value = MAX(value, rows[k * ow + j]);
+			}
+			coverage[i * ow + j] = value;
+		}
+	}
+
+	FT_Bitmap dilated = {};
+	dilated.width = ow;
+	dilated.rows = oh;
+	dilated.pitch = ow;
+	dilated.buffer = coverage.ptr();
+	dilated.num_grays = 256;
+	dilated.pixel_mode = FT_PIXEL_MODE_GRAY;
+	return rasterize_bitmap(p_data, p_rect_margin, dilated, p_yofs + p_radius, p_xofs - p_radius, Vector2(), false);
+}
 #endif
 
 /*************************************************************************/
@@ -1501,6 +1554,10 @@ bool TextServerAdvanced::_ensure_glyph(FontAdvanced *p_font_data, const Vector2i
 						gl = rasterize_bitmap(fd, rect_range, slot->bitmap, slot->bitmap_top, slot->bitmap_left, Vector2((h + (1 << 9)) >> 10, (v + (1 << 9)) >> 10) / 64.0, bgra);
 					}
 				}
+			}
+		} else if (p_font_data->outline_mode == TextServer::FONT_OUTLINE_MODE_PIXEL) {
+			if (FT_Render_Glyph(slot, aa_mode == FT_RENDER_MODE_MONO ? FT_RENDER_MODE_MONO : FT_RENDER_MODE_NORMAL) == 0) {
+				gl = rasterize_pixel_outline(fd, rect_range, slot->bitmap, slot->bitmap_top, slot->bitmap_left, fd->size.y);
 			}
 		} else {
 			FT_Stroker stroker;
@@ -2805,6 +2862,25 @@ bool TextServerAdvanced::_font_is_modulate_color_glyphs(const RID &p_font_rid) c
 
 	MutexLock lock(fd->mutex);
 	return fd->modulate_color_glyphs;
+}
+
+void TextServerAdvanced::_font_set_outline_mode(const RID &p_font_rid, TextServer::FontOutlineMode p_mode) {
+	FontAdvanced *fd = _get_font_data(p_font_rid);
+	ERR_FAIL_NULL(fd);
+
+	MutexLock lock(fd->mutex);
+	if (fd->outline_mode != p_mode) {
+		_font_clear_cache(fd);
+		fd->outline_mode = p_mode;
+	}
+}
+
+TextServer::FontOutlineMode TextServerAdvanced::_font_get_outline_mode(const RID &p_font_rid) const {
+	FontAdvanced *fd = _get_font_data(p_font_rid);
+	ERR_FAIL_NULL_V(fd, TextServer::FONT_OUTLINE_MODE_SMOOTH);
+
+	MutexLock lock(fd->mutex);
+	return fd->outline_mode;
 }
 
 int64_t TextServerAdvanced::_font_get_palette_count(const RID &p_font_rid) const {
@@ -6162,6 +6238,7 @@ RID TextServerAdvanced::_find_sys_font_for_text(const RID &p_fdef, const String 
 #endif
 
 			_font_set_antialiasing(sysf.rid, key.antialiasing);
+			_font_set_outline_mode(sysf.rid, key.outline_mode);
 			_font_set_disable_embedded_bitmaps(sysf.rid, key.disable_embedded_bitmaps);
 			_font_set_generate_mipmaps(sysf.rid, key.mipmaps);
 			_font_set_multichannel_signed_distance_field(sysf.rid, fb_use_msdf);

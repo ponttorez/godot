@@ -623,6 +623,7 @@ _FORCE_INLINE_ void FontFile::_ensure_rid(int p_cache_index, int p_make_linked_f
 			TS->font_set_fixed_size_scale_mode(cache[p_cache_index], fixed_size_scale_mode);
 			TS->font_set_force_autohinter(cache[p_cache_index], force_autohinter);
 			TS->font_set_modulate_color_glyphs(cache[p_cache_index], modulate_color_glyphs);
+			TS->font_set_outline_mode(cache[p_cache_index], outline_mode);
 			TS->font_set_allow_system_fallback(cache[p_cache_index], allow_system_fallback);
 			TS->font_set_hinting(cache[p_cache_index], hinting);
 			TS->font_set_subpixel_positioning(cache[p_cache_index], subpixel_positioning);
@@ -960,6 +961,9 @@ void FontFile::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_modulate_color_glyphs", "modulate"), &FontFile::set_modulate_color_glyphs);
 	ClassDB::bind_method(D_METHOD("is_modulate_color_glyphs"), &FontFile::is_modulate_color_glyphs);
 
+	ClassDB::bind_method(D_METHOD("set_outline_mode", "mode"), &FontFile::set_outline_mode);
+	ClassDB::bind_method(D_METHOD("get_outline_mode"), &FontFile::get_outline_mode);
+
 	ClassDB::bind_method(D_METHOD("set_hinting", "hinting"), &FontFile::set_hinting);
 	ClassDB::bind_method(D_METHOD("get_hinting"), &FontFile::get_hinting);
 
@@ -1086,6 +1090,7 @@ void FontFile::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "allow_system_fallback", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_STORAGE), "set_allow_system_fallback", "is_allow_system_fallback");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "force_autohinter", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_STORAGE), "set_force_autohinter", "is_force_autohinter");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "modulate_color_glyphs", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_STORAGE), "set_modulate_color_glyphs", "is_modulate_color_glyphs");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "outline_mode", PROPERTY_HINT_ENUM, "Smooth,Pixel", PROPERTY_USAGE_STORAGE), "set_outline_mode", "get_outline_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "hinting", PROPERTY_HINT_ENUM, "None,Light,Normal", PROPERTY_USAGE_STORAGE), "set_hinting", "get_hinting");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "fixed_size", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_STORAGE), "set_fixed_size", "get_fixed_size");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "fixed_size_scale_mode", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_STORAGE), "set_fixed_size_scale_mode", "get_fixed_size_scale_mode");
@@ -1447,6 +1452,7 @@ void FontFile::reset_state() {
 	msdf = false;
 	force_autohinter = false;
 	modulate_color_glyphs = false;
+	outline_mode = TextServer::FONT_OUTLINE_MODE_SMOOTH;
 	allow_system_fallback = true;
 	hinting = TextServer::HINTING_LIGHT;
 	subpixel_positioning = TextServer::SUBPIXEL_POSITIONING_DISABLED;
@@ -1488,6 +1494,7 @@ Error FontFile::_load_bitmap_font(const String &p_path, List<String> *r_image_fi
 	msdf = false;
 	force_autohinter = false;
 	modulate_color_glyphs = false;
+	outline_mode = TextServer::FONT_OUTLINE_MODE_SMOOTH;
 	allow_system_fallback = true;
 	hinting = TextServer::HINTING_NONE;
 
@@ -2320,6 +2327,21 @@ void FontFile::set_modulate_color_glyphs(bool p_modulate) {
 
 bool FontFile::is_modulate_color_glyphs() const {
 	return modulate_color_glyphs;
+}
+
+void FontFile::set_outline_mode(TextServer::FontOutlineMode p_mode) {
+	if (outline_mode != p_mode) {
+		outline_mode = p_mode;
+		for (int i = 0; i < cache.size(); i++) {
+			_ensure_rid(i);
+			TS->font_set_outline_mode(cache[i], outline_mode);
+		}
+		emit_changed();
+	}
+}
+
+TextServer::FontOutlineMode FontFile::get_outline_mode() const {
+	return outline_mode;
 }
 
 void FontFile::set_hinting(TextServer::Hinting p_hinting) {
@@ -3260,6 +3282,9 @@ void SystemFont::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_modulate_color_glyphs", "modulate"), &SystemFont::set_modulate_color_glyphs);
 	ClassDB::bind_method(D_METHOD("is_modulate_color_glyphs"), &SystemFont::is_modulate_color_glyphs);
 
+	ClassDB::bind_method(D_METHOD("set_outline_mode", "mode"), &SystemFont::set_outline_mode);
+	ClassDB::bind_method(D_METHOD("get_outline_mode"), &SystemFont::get_outline_mode);
+
 	ClassDB::bind_method(D_METHOD("set_hinting", "hinting"), &SystemFont::set_hinting);
 	ClassDB::bind_method(D_METHOD("get_hinting"), &SystemFont::get_hinting);
 
@@ -3299,6 +3324,7 @@ void SystemFont::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "allow_system_fallback"), "set_allow_system_fallback", "is_allow_system_fallback");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "force_autohinter"), "set_force_autohinter", "is_force_autohinter");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "modulate_color_glyphs"), "set_modulate_color_glyphs", "is_modulate_color_glyphs");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "outline_mode", PROPERTY_HINT_ENUM, "Smooth,Pixel"), "set_outline_mode", "get_outline_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "hinting", PROPERTY_HINT_ENUM, "None,Light,Normal"), "set_hinting", "get_hinting");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "subpixel_positioning", PROPERTY_HINT_ENUM, "Disabled,Auto,One Half of a Pixel,One Quarter of a Pixel"), "set_subpixel_positioning", "get_subpixel_positioning");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "keep_rounding_remainders"), "set_keep_rounding_remainders", "get_keep_rounding_remainders");
@@ -3405,6 +3431,7 @@ void SystemFont::_update_base_font() {
 		file->set_disable_embedded_bitmaps(disable_embedded_bitmaps);
 		file->set_force_autohinter(force_autohinter);
 		file->set_modulate_color_glyphs(modulate_color_glyphs);
+		file->set_outline_mode(outline_mode);
 		file->set_allow_system_fallback(allow_system_fallback);
 		file->set_hinting(hinting);
 		file->set_subpixel_positioning(subpixel_positioning);
@@ -3450,6 +3477,7 @@ void SystemFont::reset_state() {
 	disable_embedded_bitmaps = true;
 	force_autohinter = false;
 	modulate_color_glyphs = false;
+	outline_mode = TextServer::FONT_OUTLINE_MODE_SMOOTH;
 	allow_system_fallback = true;
 	hinting = TextServer::HINTING_LIGHT;
 	subpixel_positioning = TextServer::SUBPIXEL_POSITIONING_DISABLED;
@@ -3591,6 +3619,20 @@ void SystemFont::set_modulate_color_glyphs(bool p_modulate) {
 
 bool SystemFont::is_modulate_color_glyphs() const {
 	return modulate_color_glyphs;
+}
+
+void SystemFont::set_outline_mode(TextServer::FontOutlineMode p_mode) {
+	if (outline_mode != p_mode) {
+		outline_mode = p_mode;
+		if (base_font.is_valid()) {
+			base_font->set_outline_mode(outline_mode);
+		}
+		emit_changed();
+	}
+}
+
+TextServer::FontOutlineMode SystemFont::get_outline_mode() const {
+	return outline_mode;
 }
 
 void SystemFont::set_hinting(TextServer::Hinting p_hinting) {

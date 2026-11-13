@@ -126,6 +126,8 @@ void DynamicFontImportSettingsDialog::_main_prop_changed(const String &p_edited_
 		if (p_edited_property == "antialiasing") {
 			font_preview->set_antialiasing((TextServer::FontAntialiasing)import_settings_data->get("antialiasing").operator int());
 			_variations_validate();
+		} else if (p_edited_property == "outline_mode") {
+			font_preview->set_outline_mode((TextServer::FontOutlineMode)import_settings_data->get("outline_mode").operator int());
 		} else if (p_edited_property == "generate_mipmaps") {
 			font_preview->set_generate_mipmaps(import_settings_data->get("generate_mipmaps"));
 		} else if (p_edited_property == "disable_embedded_bitmaps") {
@@ -653,6 +655,7 @@ void DynamicFontImportSettingsDialog::_re_import() {
 	main_settings["allow_system_fallback"] = import_settings_data->get("allow_system_fallback");
 	main_settings["force_autohinter"] = import_settings_data->get("force_autohinter");
 	main_settings["modulate_color_glyphs"] = import_settings_data->get("modulate_color_glyphs");
+	main_settings["outline_mode"] = import_settings_data->get("outline_mode");
 	main_settings["hinting"] = import_settings_data->get("hinting");
 	main_settings["subpixel_positioning"] = import_settings_data->get("subpixel_positioning");
 	main_settings["keep_rounding_remainders"] = import_settings_data->get("keep_rounding_remainders");
@@ -954,6 +957,7 @@ void DynamicFontImportSettingsDialog::open_settings(const String &p_path) {
 		font_preview->set_allow_system_fallback(import_settings_data->get("allow_system_fallback"));
 		font_preview->set_force_autohinter(import_settings_data->get("force_autohinter"));
 		font_preview->set_modulate_color_glyphs(import_settings_data->get("modulate_color_glyphs"));
+		font_preview->set_outline_mode((TextServer::FontOutlineMode)import_settings_data->get("outline_mode").operator int());
 		int hinting = import_settings_data->get("hinting").operator int();
 		if (hinting == 3) { // Light (Except Pixel Fonts)
 			if (is_pixel) {
@@ -1002,6 +1006,7 @@ DynamicFontImportSettingsDialog::DynamicFontImportSettingsDialog() {
 	options_general.push_back(ResourceImporter::ImportOption(PropertyInfo(Variant::NIL, "Rendering", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_GROUP), Variant()));
 
 	options_general.push_back(ResourceImporter::ImportOption(PropertyInfo(Variant::INT, "antialiasing", PROPERTY_HINT_ENUM, "None,Grayscale,LCD Subpixel"), 1));
+	options_general.push_back(ResourceImporter::ImportOption(PropertyInfo(Variant::INT, "outline_mode", PROPERTY_HINT_ENUM, "Smooth,Pixel"), 0));
 	options_general.push_back(ResourceImporter::ImportOption(PropertyInfo(Variant::BOOL, "generate_mipmaps"), false));
 	options_general.push_back(ResourceImporter::ImportOption(PropertyInfo(Variant::BOOL, "disable_embedded_bitmaps"), true));
 	options_general.push_back(ResourceImporter::ImportOption(PropertyInfo(Variant::BOOL, "multichannel_signed_distance_field", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_UPDATE_ALL_IF_MODIFIED), true));

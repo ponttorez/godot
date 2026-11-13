@@ -58,6 +58,9 @@
 		<member name="multichannel_signed_distance_field" type="bool" setter="set_multichannel_signed_distance_field" getter="is_multichannel_signed_distance_field" default="false">
 			If set to [code]true[/code], glyphs of all sizes are rendered using single multichannel signed distance field generated from the dynamic font vector data.
 		</member>
+		<member name="outline_mode" type="int" setter="set_outline_mode" getter="get_outline_mode" enum="TextServer.FontOutlineMode" default="0">
+			How the outlines of the glyphs are drawn: text outlines and the outlines of text shadows ([code]outline_size[/code] and [code]shadow_outline_size[/code] of the controls, [LabelSettings] and BBCode tags). [constant TextServer.FONT_OUTLINE_MODE_PIXEL] suits pixel fonts: the outline repeats the pixels of the glyph, and its size counts the pixels the outline adds on each side of the glyph. Has no effect on fonts that use multichannel signed distance field.
+		</member>
 		<member name="oversampling" type="float" setter="set_oversampling" getter="get_oversampling" default="0.0">
 			If set to a positive value, overrides the oversampling factor of the viewport this font is used in. See [member Viewport.oversampling]. This value doesn't override the [code skip-lint]oversampling[/code] parameter of [code skip-lint]draw_*[/code] methods.
 		</member>
