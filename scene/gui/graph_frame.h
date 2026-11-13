@@ -76,6 +76,8 @@ protected:
 public:
 	void set_title(const String &p_title);
 	String get_title() const;
+	void set_title_bbcode_enabled(bool p_enabled);
+	bool is_title_bbcode_enabled() const;
 
 	void set_autoshrink_enabled(bool p_enable);
 	bool is_autoshrink_enabled() const;
