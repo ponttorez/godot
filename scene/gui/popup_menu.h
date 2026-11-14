@@ -31,6 +31,7 @@
 #pragma once
 
 #include "core/input/shortcut.h"
+#include "scene/gui/bbcode_text.h"
 #include "scene/gui/popup.h"
 #include "scene/gui/scroll_container.h"
 #include "scene/property_list_helper.h"
@@ -61,6 +62,7 @@ class PopupMenu : public Popup {
 		String xl_text;
 		Ref<TextLine> text_buf;
 		Ref<TextLine> accel_text_buf;
+		Ref<BBCodeText> bbcode;
 
 		String language;
 		Control::TextDirection text_direction = Control::TEXT_DIRECTION_AUTO;
@@ -155,7 +157,11 @@ class PopupMenu : public Popup {
 	int _get_items_total_height() const;
 	Size2 _get_item_icon_size(int p_idx) const;
 
+	bool bbcode_enabled = false;
+
 	void _shape_item(int p_idx) const;
+	Size2 _get_item_text_size(int p_idx) const;
+	void _draw_item_text(RID p_ci, int p_idx, const Vector2 &p_pos, const Color &p_color, int p_outline_size, const Color &p_outline_color) const;
 
 	void _accessibility_action_click(const Variant &p_data, int p_idx);
 
@@ -295,6 +301,9 @@ protected:
 #endif
 
 public:
+	void set_bbcode_enabled(bool p_enabled);
+	bool is_bbcode_enabled() const;
+
 	// ATTENTION: This is used by the POT generator's scene parser. If the number of properties returned by `_get_items()` ever changes,
 	// this value should be updated to reflect the new size.
 	static const int ITEM_PROPERTY_SIZE = 10;
@@ -469,4 +478,5 @@ public:
 	virtual RID get_focused_accessibility_element() const override;
 	virtual void gui_input(const Ref<InputEvent> &p_event) override;
 	virtual String get_tooltip(const Point2 &p_pos) const override;
+	virtual bool is_tooltip_bbcode_enabled_at(const Vector2 &p_at) const override;
 };
