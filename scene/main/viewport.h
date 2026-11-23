@@ -392,6 +392,7 @@ private:
 		Window *tooltip_popup = nullptr;
 		Label *tooltip_label = nullptr;
 		String tooltip_text;
+		Dictionary tooltip_text_arguments;
 		Point2 tooltip_pos;
 		Point2 last_mouse_pos;
 		Point2 drag_accum;

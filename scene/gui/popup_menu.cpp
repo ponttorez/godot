@@ -1334,6 +1334,8 @@ void PopupMenu::set_bbcode_enabled(bool p_enabled) {
 	}
 	bbcode_enabled = p_enabled;
 	for (int i = 0; i < items.size(); i++) {
+		// The arguments are escaped with BBCode.
+		items.write[i].xl_text = _atr(i, items[i].text);
 		items.write[i].dirty = true;
 		_shape_item(i);
 	}
@@ -2243,6 +2245,36 @@ void PopupMenu::set_item_text(int p_idx, const String &p_text) {
 
 	child_controls_changed();
 	_menu_changed();
+}
+
+void PopupMenu::set_item_text_arguments(int p_idx, const Dictionary &p_arguments) {
+	if (p_idx < 0) {
+		p_idx += get_item_count();
+	}
+	ERR_FAIL_INDEX(p_idx, items.size());
+	items.write[p_idx].text_arguments = p_arguments;
+	items.write[p_idx].xl_text = _atr(p_idx, items[p_idx].text);
+	items.write[p_idx].dirty = true;
+	items.write[p_idx].accessibility_item_dirty = true;
+
+	if (global_menu.is_valid()) {
+		NativeMenu::get_singleton()->set_item_text(global_menu, p_idx, items[p_idx].xl_text);
+	}
+
+	_shape_item(p_idx);
+	queue_accessibility_update();
+	control->queue_redraw();
+
+	child_controls_changed();
+	_menu_changed();
+}
+
+Dictionary PopupMenu::get_item_text_arguments(int p_idx) const {
+	if (p_idx < 0) {
+		p_idx += get_item_count();
+	}
+	ERR_FAIL_INDEX_V(p_idx, items.size(), Dictionary());
+	return items[p_idx].text_arguments;
 }
 
 void PopupMenu::set_item_text_direction(int p_idx, Control::TextDirection p_text_direction) {
@@ -3508,6 +3540,7 @@ void PopupMenu::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("add_submenu_node_item", "label", "submenu", "id"), &PopupMenu::add_submenu_node_item, DEFVAL(-1));
 
 	ClassDB::bind_method(D_METHOD("set_item_text", "index", "text"), &PopupMenu::set_item_text);
+	ClassDB::bind_method(D_METHOD("set_item_text_arguments", "index", "arguments"), &PopupMenu::set_item_text_arguments);
 	ClassDB::bind_method(D_METHOD("set_item_text_direction", "index", "direction"), &PopupMenu::set_item_text_direction);
 	ClassDB::bind_method(D_METHOD("set_item_language", "index", "language"), &PopupMenu::set_item_language);
 	ClassDB::bind_method(D_METHOD("set_item_auto_translate_mode", "index", "mode"), &PopupMenu::set_item_auto_translate_mode);
@@ -3536,6 +3569,7 @@ void PopupMenu::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("toggle_item_multistate", "index"), &PopupMenu::toggle_item_multistate);
 
 	ClassDB::bind_method(D_METHOD("get_item_text", "index"), &PopupMenu::get_item_text);
+	ClassDB::bind_method(D_METHOD("get_item_text_arguments", "index"), &PopupMenu::get_item_text_arguments);
 	ClassDB::bind_method(D_METHOD("get_item_text_direction", "index"), &PopupMenu::get_item_text_direction);
 	ClassDB::bind_method(D_METHOD("get_item_language", "index"), &PopupMenu::get_item_language);
 	ClassDB::bind_method(D_METHOD("get_item_auto_translate_mode", "index"), &PopupMenu::get_item_auto_translate_mode);
@@ -3686,6 +3720,7 @@ void PopupMenu::_bind_methods() {
 	base_property_helper.set_prefix("item_");
 	base_property_helper.set_array_length_getter(&PopupMenu::get_item_count);
 	base_property_helper.register_property(PropertyInfo(Variant::STRING, "text"), defaults.text, &PopupMenu::set_item_text, &PopupMenu::get_item_text);
+	base_property_helper.register_property(PropertyInfo(Variant::DICTIONARY, "text_arguments", PROPERTY_HINT_DICTIONARY_TYPE, "String;"), defaults.text_arguments, &PopupMenu::set_item_text_arguments, &PopupMenu::get_item_text_arguments);
 	base_property_helper.register_property(PropertyInfo(Variant::OBJECT, "icon", PROPERTY_HINT_RESOURCE_TYPE, Texture2D::get_class_static()), defaults.icon, &PopupMenu::set_item_icon, &PopupMenu::get_item_icon);
 	base_property_helper.register_property(PropertyInfo(Variant::INT, "checkable", PROPERTY_HINT_ENUM, "No,As checkbox,As radio button"), defaults.checkable_type, &PopupMenu::_set_item_checkable_type, &PopupMenu::_get_item_checkable_type);
 	base_property_helper.register_property(PropertyInfo(Variant::BOOL, "checked"), defaults.checked, &PopupMenu::set_item_checked, &PopupMenu::is_item_checked);
@@ -3712,19 +3747,22 @@ void PopupMenu::_native_popup(const Rect2i &p_rect) {
 
 String PopupMenu::_atr(int p_idx, const String &p_text) const {
 	ERR_FAIL_INDEX_V(p_idx, items.size(), atr(p_text));
+	String translated;
 	switch (items[p_idx].auto_translate_mode) {
 		case AUTO_TRANSLATE_MODE_INHERIT: {
-			return atr(p_text);
+			translated = atr(p_text);
 		} break;
 		case AUTO_TRANSLATE_MODE_ALWAYS: {
-			return tr(p_text);
+			translated = tr(p_text);
 		} break;
 		case AUTO_TRANSLATE_MODE_DISABLED: {
-			return p_text;
+			translated = p_text;
 		} break;
+		default: {
+			ERR_FAIL_V_MSG(atr(p_text), "Unexpected auto translate mode: " + itos(items[p_idx].auto_translate_mode));
+		}
 	}
-
-	ERR_FAIL_V_MSG(atr(p_text), "Unexpected auto translate mode: " + itos(items[p_idx].auto_translate_mode));
+	return format_text_arguments(translated, items[p_idx].text_arguments, p_text, bbcode_enabled);
 }
 
 void PopupMenu::_popup_base(const Rect2i &p_bounds) {
@@ -3939,6 +3977,15 @@ String PopupMenuItems::get_tooltip(const Point2 &p_pos) const {
 		return "";
 	}
 	return popup->items[over].tooltip;
+}
+
+Dictionary PopupMenuItems::get_tooltip_text_arguments_at(const Vector2 &p_at) const {
+	int over = popup->_get_mouse_over(get_global_transform_with_canvas().xform(p_at) * popup->get_content_scale_factor());
+	if (over < 0 || over >= popup->items.size()) {
+		return Control::get_tooltip_text_arguments_at(p_at);
+	}
+	// The tooltip of an item is formatted like its text.
+	return popup->items[over].text_arguments;
 }
 
 bool PopupMenuItems::is_tooltip_bbcode_enabled_at(const Vector2 &p_at) const {

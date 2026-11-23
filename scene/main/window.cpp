@@ -326,6 +326,23 @@ String Window::get_title() const {
 	return title;
 }
 
+void Window::set_title_text_arguments(const Dictionary &p_arguments) {
+	ERR_MAIN_THREAD_GUARD;
+	title_text_arguments = p_arguments;
+	_update_displayed_title();
+}
+
+Dictionary Window::get_title_text_arguments() const {
+	ERR_READ_THREAD_GUARD_V(Dictionary());
+	return title_text_arguments;
+}
+
+void Window::set_title_text_argument(const String &p_name, const Variant &p_value) {
+	ERR_MAIN_THREAD_GUARD;
+	title_text_arguments[p_name] = p_value;
+	_update_displayed_title();
+}
+
 void Window::set_title_bbcode_enabled(bool p_enabled) {
 	ERR_MAIN_THREAD_GUARD;
 	if (title_bbcode_enabled == p_enabled) {
@@ -3339,7 +3356,7 @@ void Window::_mouse_leave_viewport() {
 }
 
 void Window::_update_displayed_title() {
-	displayed_title = atr(title);
+	displayed_title = format_text_arguments(atr(title), title_text_arguments, title, title_bbcode_enabled);
 
 #ifdef DEBUG_ENABLED
 	if (window_id == DisplayServerEnums::MAIN_WINDOW_ID && !Engine::get_singleton()->is_project_manager_hint()) {
@@ -3389,6 +3406,9 @@ void Window::_update_displayed_title() {
 void Window::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_title", "title"), &Window::set_title);
 	ClassDB::bind_method(D_METHOD("get_title"), &Window::get_title);
+	ClassDB::bind_method(D_METHOD("set_title_text_arguments", "arguments"), &Window::set_title_text_arguments);
+	ClassDB::bind_method(D_METHOD("get_title_text_arguments"), &Window::get_title_text_arguments);
+	ClassDB::bind_method(D_METHOD("set_title_text_argument", "name", "value"), &Window::set_title_text_argument);
 	ClassDB::bind_method(D_METHOD("set_title_bbcode_enabled", "enabled"), &Window::set_title_bbcode_enabled);
 	ClassDB::bind_method(D_METHOD("is_title_bbcode_enabled"), &Window::is_title_bbcode_enabled);
 
@@ -3582,6 +3602,7 @@ void Window::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mode", PROPERTY_HINT_ENUM, "Windowed,Minimized,Maximized,Fullscreen,Exclusive Fullscreen"), "set_mode", "get_mode");
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "title"), "set_title", "get_title");
+	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "title_text_arguments", PROPERTY_HINT_DICTIONARY_TYPE, "String;"), "set_title_text_arguments", "get_title_text_arguments");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "title_bbcode_enabled"), "set_title_bbcode_enabled", "is_title_bbcode_enabled");
 
 	// Keep the enum values in sync with the `WindowInitialPosition` enum.

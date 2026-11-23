@@ -243,6 +243,15 @@ void OptionButton::set_item_text(int p_idx, const String &p_text) {
 	_queue_update_size_cache();
 }
 
+void OptionButton::set_item_text_arguments(int p_idx, const Dictionary &p_arguments) {
+	popup->set_item_text_arguments(p_idx, p_arguments);
+
+	if (current == p_idx) {
+		set_text_arguments(p_arguments);
+	}
+	_queue_update_size_cache();
+}
+
 void OptionButton::set_item_icon(int p_idx, const Ref<Texture2D> &p_icon) {
 	popup->set_item_icon(p_idx, p_icon);
 
@@ -285,6 +294,10 @@ void OptionButton::set_item_disabled(int p_idx, bool p_disabled) {
 
 String OptionButton::get_item_text(int p_idx) const {
 	return popup->get_item_text(p_idx);
+}
+
+Dictionary OptionButton::get_item_text_arguments(int p_idx) const {
+	return popup->get_item_text_arguments(p_idx);
 }
 
 Ref<Texture2D> OptionButton::get_item_icon(int p_idx) const {
@@ -441,6 +454,7 @@ void OptionButton::add_separator(const String &p_text) {
 
 void OptionButton::clear() {
 	popup->clear();
+	set_text_arguments(Dictionary());
 	set_text("");
 	set_button_icon(Ref<Texture2D>());
 	current = NONE_SELECTED;
@@ -458,6 +472,7 @@ void OptionButton::_select(int p_which, bool p_emit) {
 		}
 
 		current = NONE_SELECTED;
+		set_text_arguments(Dictionary());
 		set_text("");
 		set_button_icon(Ref<Texture2D>());
 	} else {
@@ -468,6 +483,8 @@ void OptionButton::_select(int p_which, bool p_emit) {
 		}
 
 		current = p_which;
+		// The button shows the text of the item formatted like in the popup.
+		set_text_arguments(popup->get_item_text_arguments(current));
 		set_text(popup->get_item_text(current));
 		set_button_icon(popup->get_item_icon(current));
 	}
@@ -613,6 +630,7 @@ void OptionButton::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("add_item", "label", "id"), &OptionButton::add_item, DEFVAL(-1));
 	ClassDB::bind_method(D_METHOD("add_icon_item", "texture", "label", "id"), &OptionButton::add_icon_item, DEFVAL(-1));
 	ClassDB::bind_method(D_METHOD("set_item_text", "idx", "text"), &OptionButton::set_item_text);
+	ClassDB::bind_method(D_METHOD("set_item_text_arguments", "idx", "arguments"), &OptionButton::set_item_text_arguments);
 	ClassDB::bind_method(D_METHOD("set_item_icon", "idx", "texture"), &OptionButton::set_item_icon);
 	ClassDB::bind_method(D_METHOD("set_item_disabled", "idx", "disabled"), &OptionButton::set_item_disabled);
 	ClassDB::bind_method(D_METHOD("set_item_id", "idx", "id"), &OptionButton::set_item_id);
@@ -627,6 +645,7 @@ void OptionButton::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_search_bar_fuzzy_search_max_misses", "max_misses"), &OptionButton::set_search_bar_fuzzy_search_max_misses);
 	ClassDB::bind_method(D_METHOD("get_search_bar_fuzzy_search_max_misses"), &OptionButton::get_search_bar_fuzzy_search_max_misses);
 	ClassDB::bind_method(D_METHOD("get_item_text", "idx"), &OptionButton::get_item_text);
+	ClassDB::bind_method(D_METHOD("get_item_text_arguments", "idx"), &OptionButton::get_item_text_arguments);
 	ClassDB::bind_method(D_METHOD("get_item_icon", "idx"), &OptionButton::get_item_icon);
 	ClassDB::bind_method(D_METHOD("get_item_id", "idx"), &OptionButton::get_item_id);
 	ClassDB::bind_method(D_METHOD("get_item_index", "id"), &OptionButton::get_item_index);
@@ -693,6 +712,7 @@ void OptionButton::_bind_methods() {
 	base_property_helper.set_prefix("popup/item_");
 	base_property_helper.set_array_length_getter(&OptionButton::get_item_count);
 	base_property_helper.register_property(PropertyInfo(Variant::STRING, "text"), defaults.text, &OptionButton::_dummy_setter, &OptionButton::get_item_text);
+	base_property_helper.register_property(PropertyInfo(Variant::DICTIONARY, "text_arguments", PROPERTY_HINT_DICTIONARY_TYPE, "String;"), defaults.text_arguments, &OptionButton::_dummy_setter, &OptionButton::get_item_text_arguments);
 	base_property_helper.register_property(PropertyInfo(Variant::OBJECT, "icon", PROPERTY_HINT_RESOURCE_TYPE, Texture2D::get_class_static()), defaults.icon, &OptionButton::_dummy_setter, &OptionButton::get_item_icon);
 	base_property_helper.register_property(PropertyInfo(Variant::INT, "id", PROPERTY_HINT_RANGE, "0,10,1,or_greater", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_STORE_IF_NULL), defaults.id, &OptionButton::_dummy_setter, &OptionButton::get_item_id);
 	base_property_helper.register_property(PropertyInfo(Variant::BOOL, "disabled"), defaults.disabled, &OptionButton::_dummy_setter, &OptionButton::is_item_disabled);

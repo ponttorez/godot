@@ -594,6 +594,14 @@
 				[b]Note:[/b] This method is implemented only on Windows and macOS.
 			</description>
 		</method>
+		<method name="set_title_text_argument">
+			<return type="void" />
+			<param index="0" name="name" type="String" />
+			<param index="1" name="value" type="Variant" />
+			<description>
+				Sets the [param value] of the argument [param name] in [member title_text_arguments] and updates the text.
+			</description>
+		</method>
 		<method name="set_unparent_when_invisible">
 			<return type="void" />
 			<param index="0" name="unparent" type="bool" />
@@ -782,6 +790,10 @@
 		</member>
 		<member name="title_bbcode_enabled" type="bool" setter="set_title_bbcode_enabled" getter="is_title_bbcode_enabled" default="false">
 			If [code]true[/code], [member title] is parsed as BBCode, as in [member Label.bbcode_enabled], when an embedded window draws its title bar. The window manager shows the title of native windows without the tags.
+		</member>
+		<member name="title_text_arguments" type="Dictionary" setter="set_title_text_arguments" getter="get_title_text_arguments" default="{}">
+			Arguments formatted in the translated [member title] like [member Label.text_arguments]. Native windows get the formatted title too.
+			[b]Note:[/b] Changing the returned dictionary doesn't update the text, use [method set_title_text_argument] or set the whole dictionary.
 		</member>
 		<member name="transient" type="bool" setter="set_transient" getter="is_transient" default="false">
 			If [code]true[/code], the [Window] is transient, i.e. it's considered a child of another [Window]. The transient window will be destroyed with its transient parent and will return focus to their parent when closed. The transient window is displayed on top of a non-exclusive full-screen parent window. Transient windows can't enter full-screen mode.

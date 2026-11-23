@@ -17,6 +17,14 @@
 				This can be used to add custom controls to the title bar such as option or close buttons.
 			</description>
 		</method>
+		<method name="set_title_text_argument">
+			<return type="void" />
+			<param index="0" name="name" type="String" />
+			<param index="1" name="value" type="Variant" />
+			<description>
+				Sets the [param value] of the argument [param name] in [member title_text_arguments] and updates the text.
+			</description>
+		</method>
 	</methods>
 	<members>
 		<member name="autoshrink_enabled" type="bool" setter="set_autoshrink_enabled" getter="is_autoshrink_enabled" default="true">
@@ -40,6 +48,10 @@
 		</member>
 		<member name="title_bbcode_enabled" type="bool" setter="set_title_bbcode_enabled" getter="is_title_bbcode_enabled" default="false">
 			If [code]true[/code], [member title] is parsed as BBCode, as in [member Label.bbcode_enabled].
+		</member>
+		<member name="title_text_arguments" type="Dictionary" setter="set_title_text_arguments" getter="get_title_text_arguments" default="{}">
+			Arguments formatted in the translated [member title] like [member Label.text_arguments].
+			[b]Note:[/b] Changing the returned dictionary doesn't update the text, use [method set_title_text_argument] or set the whole dictionary.
 		</member>
 	</members>
 	<signals>

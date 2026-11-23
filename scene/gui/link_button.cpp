@@ -75,7 +75,7 @@ void LinkButton::set_text(const String &p_text) {
 		return;
 	}
 	text = p_text;
-	xl_text = atr(text);
+	xl_text = format_text_arguments(atr(text), text_arguments, text, bbcode_enabled);
 	_shape();
 	update_configuration_warnings();
 	update_minimum_size();
@@ -84,6 +84,28 @@ void LinkButton::set_text(const String &p_text) {
 
 String LinkButton::get_text() const {
 	return text;
+}
+
+void LinkButton::_update_translated_text() {
+	xl_text = format_text_arguments(atr(text), text_arguments, text, bbcode_enabled);
+	_shape();
+	update_configuration_warnings();
+	update_minimum_size();
+	queue_redraw();
+}
+
+void LinkButton::set_text_arguments(const Dictionary &p_arguments) {
+	text_arguments = p_arguments;
+	_update_translated_text();
+}
+
+Dictionary LinkButton::get_text_arguments() const {
+	return text_arguments;
+}
+
+void LinkButton::set_text_argument(const String &p_name, const Variant &p_value) {
+	text_arguments[p_name] = p_value;
+	_update_translated_text();
 }
 
 void LinkButton::set_text_overrun_behavior(TextServer::OverrunBehavior p_behavior) {
@@ -256,6 +278,8 @@ void LinkButton::set_bbcode_enabled(bool p_enabled) {
 		bbcode = Ref<BBCodeText>();
 		set_text_effects_animated(false);
 	}
+	// The arguments are escaped with BBCode.
+	xl_text = format_text_arguments(atr(text), text_arguments, text, bbcode_enabled);
 	_shape();
 	update_minimum_size();
 	queue_redraw();
@@ -291,7 +315,7 @@ void LinkButton::_notification(int p_what) {
 		} break;
 
 		case NOTIFICATION_TRANSLATION_CHANGED: {
-			xl_text = atr(text);
+			xl_text = format_text_arguments(atr(text), text_arguments, text, bbcode_enabled);
 			_shape();
 			update_configuration_warnings();
 			update_minimum_size();
@@ -411,6 +435,9 @@ void LinkButton::_notification(int p_what) {
 void LinkButton::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_text", "text"), &LinkButton::set_text);
 	ClassDB::bind_method(D_METHOD("get_text"), &LinkButton::get_text);
+	ClassDB::bind_method(D_METHOD("set_text_arguments", "arguments"), &LinkButton::set_text_arguments);
+	ClassDB::bind_method(D_METHOD("get_text_arguments"), &LinkButton::get_text_arguments);
+	ClassDB::bind_method(D_METHOD("set_text_argument", "name", "value"), &LinkButton::set_text_argument);
 	ClassDB::bind_method(D_METHOD("set_bbcode_enabled", "enabled"), &LinkButton::set_bbcode_enabled);
 	ClassDB::bind_method(D_METHOD("is_bbcode_enabled"), &LinkButton::is_bbcode_enabled);
 	ClassDB::bind_method(D_METHOD("set_text_overrun_behavior", "overrun_behavior"), &LinkButton::set_text_overrun_behavior);
@@ -435,6 +462,7 @@ void LinkButton::_bind_methods() {
 	BIND_ENUM_CONSTANT(UNDERLINE_MODE_NEVER);
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "text"), "set_text", "get_text");
+	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "text_arguments", PROPERTY_HINT_DICTIONARY_TYPE, "String;"), "set_text_arguments", "get_text_arguments");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "bbcode_enabled"), "set_bbcode_enabled", "is_bbcode_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "underline", PROPERTY_HINT_ENUM, "Always,On Hover,Never"), "set_underline_mode", "get_underline_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "uri"), "set_uri", "get_uri");

@@ -49,6 +49,7 @@ public:
 private:
 	bool folded = false;
 	String title;
+	Dictionary title_text_arguments;
 	Ref<FoldableGroup> foldable_group;
 	String language;
 	TextDirection title_text_direction = TEXT_DIRECTION_AUTO;
@@ -126,6 +127,9 @@ public:
 
 	void set_title(const String &p_text);
 	String get_title() const;
+	void set_title_text_arguments(const Dictionary &p_arguments);
+	Dictionary get_title_text_arguments() const;
+	void set_title_text_argument(const String &p_name, const Variant &p_value);
 
 	void set_title_alignment(HorizontalAlignment p_alignment);
 	HorizontalAlignment get_title_alignment() const;

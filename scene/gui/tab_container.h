@@ -109,6 +109,7 @@ private:
 	struct CachedTab {
 		bool has_title = false;
 		String title;
+		Dictionary text_arguments;
 		Ref<Texture2D> icon;
 		bool disabled = false;
 		bool hidden = false;
@@ -200,6 +201,9 @@ public:
 
 	void set_tab_title(int p_tab, const String &p_title);
 	String get_tab_title(int p_tab) const;
+
+	void set_tab_text_arguments(int p_tab, const Dictionary &p_arguments);
+	Dictionary get_tab_text_arguments(int p_tab) const;
 
 	void set_tab_tooltip(int p_tab, const String &p_tooltip);
 	String get_tab_tooltip(int p_tab) const;

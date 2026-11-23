@@ -118,6 +118,9 @@ public:
 
 	void set_text(String p_text);
 	String get_text() const;
+	void set_text_arguments(const Dictionary &p_arguments);
+	Dictionary get_text_arguments() const;
+	void set_text_argument(const String &p_name, const Variant &p_value);
 
 	void set_autowrap(bool p_autowrap);
 	bool has_autowrap();

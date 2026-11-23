@@ -38,6 +38,14 @@
 				Removes a [Control] added with [method add_title_bar_control]. The node is not freed automatically, you need to use [method Node.queue_free].
 			</description>
 		</method>
+		<method name="set_title_text_argument">
+			<return type="void" />
+			<param index="0" name="name" type="String" />
+			<param index="1" name="value" type="Variant" />
+			<description>
+				Sets the [param value] of the argument [param name] in [member title_text_arguments] and updates the text.
+			</description>
+		</method>
 	</methods>
 	<members>
 		<member name="focus_mode" type="int" setter="set_focus_mode" getter="get_focus_mode" overrides="Control" enum="Control.FocusMode" default="2" />
@@ -62,6 +70,10 @@
 		</member>
 		<member name="title_position" type="int" setter="set_title_position" getter="get_title_position" enum="FoldableContainer.TitlePosition" default="0">
 			Title's position.
+		</member>
+		<member name="title_text_arguments" type="Dictionary" setter="set_title_text_arguments" getter="get_title_text_arguments" default="{}">
+			Arguments formatted in the translated [member title] like [member Label.text_arguments].
+			[b]Note:[/b] Changing the returned dictionary doesn't update the text, use [method set_title_text_argument] or set the whole dictionary.
 		</member>
 		<member name="title_text_direction" type="int" setter="set_title_text_direction" getter="get_title_text_direction" enum="Control.TextDirection" default="0">
 			Title text writing direction.

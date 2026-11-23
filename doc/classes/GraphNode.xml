@@ -295,6 +295,14 @@
 				Sets the right (output) type of the slot with the given [param slot_index] to [param type]. If the value is negative, all connections will be disallowed to be created via user inputs.
 			</description>
 		</method>
+		<method name="set_title_text_argument">
+			<return type="void" />
+			<param index="0" name="name" type="String" />
+			<param index="1" name="value" type="Variant" />
+			<description>
+				Sets the [param value] of the argument [param name] in [member title_text_arguments] and updates the text.
+			</description>
+		</method>
 	</methods>
 	<members>
 		<member name="focus_mode" type="int" setter="set_focus_mode" getter="get_focus_mode" overrides="Control" enum="Control.FocusMode" default="3" />
@@ -313,6 +321,10 @@
 		</member>
 		<member name="title_bbcode_enabled" type="bool" setter="set_title_bbcode_enabled" getter="is_title_bbcode_enabled" default="false">
 			If [code]true[/code], [member title] is parsed as BBCode, as in [member Label.bbcode_enabled].
+		</member>
+		<member name="title_text_arguments" type="Dictionary" setter="set_title_text_arguments" getter="get_title_text_arguments" default="{}">
+			Arguments formatted in the translated [member title] like [member Label.text_arguments].
+			[b]Note:[/b] Changing the returned dictionary doesn't update the text, use [method set_title_text_argument] or set the whole dictionary.
 		</member>
 	</members>
 	<signals>

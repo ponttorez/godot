@@ -70,6 +70,7 @@ private:
 		Ref<Texture2D> tag_icon;
 		String text;
 		String xl_text;
+		Dictionary text_arguments;
 		Ref<TextParagraph> text_buf;
 		Ref<BBCodeText> bbcode;
 		String language;
@@ -232,6 +233,8 @@ public:
 
 	void set_item_text(int p_idx, const String &p_text);
 	String get_item_text(int p_idx) const;
+	void set_item_text_arguments(int p_idx, const Dictionary &p_arguments);
+	Dictionary get_item_text_arguments(int p_idx) const;
 
 	void set_item_text_direction(int p_idx, TextDirection p_text_direction);
 	TextDirection get_item_text_direction(int p_idx) const;
@@ -340,6 +343,7 @@ public:
 
 	virtual String get_tooltip(const Point2 &p_pos) const override;
 	virtual AutoTranslateMode get_tooltip_auto_translate_mode_at(const Point2 &p_at) const override;
+	virtual Dictionary get_tooltip_text_arguments_at(const Vector2 &p_at) const override;
 	virtual bool is_tooltip_bbcode_enabled_at(const Vector2 &p_at) const override;
 	int get_item_at_position(const Point2 &p_pos, bool p_exact = false) const;
 	bool is_pos_at_end_of_items(const Point2 &p_pos) const;

@@ -72,6 +72,7 @@ private:
 		Color font_color_overrides[DrawMode::DRAW_MAX] = { Color(0, 0, 0, 0), Color(0, 0, 0, 0), Color(0, 0, 0, 0), Color(0, 0, 0, 0) };
 
 		String text;
+		Dictionary text_arguments;
 		String tooltip;
 
 		String language;
@@ -200,6 +201,8 @@ private:
 	bool bbcode_enabled = false;
 
 	void _shape(int p_tab);
+	// The translated title of the tab, formatted with its text_arguments.
+	String _get_tab_xl_text(int p_tab) const;
 	Size2 _get_tab_text_size(int p_tab) const;
 	void _set_tab_text_width(int p_tab, int p_width);
 	void _draw_tab(Ref<StyleBox> &p_tab_style, const Color &p_font_color, const Color &p_icon_color, int p_index, float p_x, bool p_focus);
@@ -212,6 +215,7 @@ protected:
 	virtual void gui_input(const Ref<InputEvent> &p_event) override;
 	virtual String get_tooltip(const Point2 &p_pos) const override;
 	virtual bool is_tooltip_bbcode_enabled_at(const Vector2 &p_at) const override;
+	virtual Dictionary get_tooltip_text_arguments_at(const Vector2 &p_at) const override;
 
 	bool _set(const StringName &p_name, const Variant &p_value) { return property_helper.property_set_value(p_name, p_value); }
 	bool _get(const StringName &p_name, Variant &r_ret) const { return property_helper.property_get_value(p_name, r_ret); }
@@ -244,6 +248,9 @@ public:
 
 	void set_tab_title(int p_tab, const String &p_title);
 	String get_tab_title(int p_tab) const;
+
+	void set_tab_text_arguments(int p_tab, const Dictionary &p_arguments);
+	Dictionary get_tab_text_arguments(int p_tab) const;
 
 	void set_tab_tooltip(int p_tab, const String &p_tooltip);
 	String get_tab_tooltip(int p_tab) const;

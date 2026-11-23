@@ -60,6 +60,7 @@ class PopupMenu : public Popup {
 		Color icon_modulate = Color(1, 1, 1, 1);
 		String text;
 		String xl_text;
+		Dictionary text_arguments;
 		Ref<TextLine> text_buf;
 		Ref<TextLine> accel_text_buf;
 		Ref<BBCodeText> bbcode;
@@ -340,6 +341,7 @@ public:
 	void add_submenu_node_item(const String &p_label, PopupMenu *p_submenu, int p_id = -1);
 
 	void set_item_text(int p_idx, const String &p_text);
+	void set_item_text_arguments(int p_idx, const Dictionary &p_arguments);
 
 	void set_item_text_direction(int p_idx, Control::TextDirection p_text_direction);
 	void set_item_language(int p_idx, const String &p_language);
@@ -369,6 +371,7 @@ public:
 	void toggle_item_checked(int p_idx);
 
 	String get_item_text(int p_idx) const;
+	Dictionary get_item_text_arguments(int p_idx) const;
 	String get_item_xl_text(int p_idx) const;
 	Control::TextDirection get_item_text_direction(int p_idx) const;
 	String get_item_language(int p_idx) const;
@@ -482,5 +485,6 @@ public:
 	virtual RID get_focused_accessibility_element() const override;
 	virtual void gui_input(const Ref<InputEvent> &p_event) override;
 	virtual String get_tooltip(const Point2 &p_pos) const override;
+	virtual Dictionary get_tooltip_text_arguments_at(const Vector2 &p_at) const override;
 	virtual bool is_tooltip_bbcode_enabled_at(const Vector2 &p_at) const override;
 };

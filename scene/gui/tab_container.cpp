@@ -457,6 +457,7 @@ void TabContainer::move_tab_from_tab_container(TabContainer *p_from, int p_from_
 
 	// Get the tab properties before they get erased by the child removal.
 	String tab_title = p_from->get_tab_title(p_from_index);
+	Dictionary tab_text_arguments = p_from->get_tab_text_arguments(p_from_index);
 	String tab_tooltip = p_from->get_tab_tooltip(p_from_index);
 	Ref<Texture2D> tab_icon = p_from->get_tab_icon(p_from_index);
 	Ref<Texture2D> tab_button_icon = p_from->get_tab_button_icon(p_from_index);
@@ -475,6 +476,7 @@ void TabContainer::move_tab_from_tab_container(TabContainer *p_from, int p_from_
 	move_child(moving_tabc, get_tab_control(p_to_index)->get_index(false));
 
 	set_tab_title(p_to_index, tab_title);
+	set_tab_text_arguments(p_to_index, tab_text_arguments);
 	set_tab_tooltip(p_to_index, tab_tooltip);
 	set_tab_icon(p_to_index, tab_icon);
 	set_tab_button_icon(p_to_index, tab_button_icon);
@@ -592,6 +594,9 @@ void TabContainer::add_child_notify(Node *p_child) {
 		const CachedTab &tab = pending_tabs[idx];
 		if (tab.has_title) {
 			set_tab_title(idx, tab.title);
+		}
+		if (!tab.text_arguments.is_empty()) {
+			set_tab_text_arguments(idx, tab.text_arguments);
 		}
 		set_tab_icon(idx, tab.icon);
 		set_tab_disabled(idx, tab.disabled);
@@ -883,6 +888,23 @@ void TabContainer::set_tab_title(int p_tab, const String &p_title) {
 
 String TabContainer::get_tab_title(int p_tab) const {
 	return tab_bar->get_tab_title(p_tab);
+}
+
+void TabContainer::set_tab_text_arguments(int p_tab, const Dictionary &p_arguments) {
+	Control *child = get_tab_control(p_tab);
+	if (!child && !is_ready()) {
+		get_pending_tab(p_tab).text_arguments = p_arguments;
+		return;
+	}
+	ERR_FAIL_NULL(child);
+
+	tab_bar->set_tab_text_arguments(p_tab, p_arguments);
+	_repaint();
+	queue_redraw();
+}
+
+Dictionary TabContainer::get_tab_text_arguments(int p_tab) const {
+	return tab_bar->get_tab_text_arguments(p_tab);
 }
 
 void TabContainer::set_tab_tooltip(int p_tab, const String &p_tooltip) {
@@ -1220,6 +1242,8 @@ void TabContainer::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_tab_title", "tab_idx", "title"), &TabContainer::set_tab_title);
 	ClassDB::bind_method(D_METHOD("get_tab_title", "tab_idx"), &TabContainer::get_tab_title);
+	ClassDB::bind_method(D_METHOD("set_tab_text_arguments", "tab_idx", "arguments"), &TabContainer::set_tab_text_arguments);
+	ClassDB::bind_method(D_METHOD("get_tab_text_arguments", "tab_idx"), &TabContainer::get_tab_text_arguments);
 	ClassDB::bind_method(D_METHOD("set_tab_tooltip", "tab_idx", "tooltip"), &TabContainer::set_tab_tooltip);
 	ClassDB::bind_method(D_METHOD("get_tab_tooltip", "tab_idx"), &TabContainer::get_tab_tooltip);
 	ClassDB::bind_method(D_METHOD("set_tab_icon", "tab_idx", "icon"), &TabContainer::set_tab_icon);
@@ -1329,6 +1353,7 @@ void TabContainer::_bind_methods() {
 	base_property_helper.set_prefix("tab_");
 	base_property_helper.set_array_length_getter(&TabContainer::get_tab_count);
 	base_property_helper.register_property(PropertyInfo(Variant::STRING, "title"), defaults.title, &TabContainer::set_tab_title, &TabContainer::get_tab_title);
+	base_property_helper.register_property(PropertyInfo(Variant::DICTIONARY, "text_arguments", PROPERTY_HINT_DICTIONARY_TYPE, "String;"), defaults.text_arguments, &TabContainer::set_tab_text_arguments, &TabContainer::get_tab_text_arguments);
 	base_property_helper.register_property(PropertyInfo(Variant::OBJECT, "icon", PROPERTY_HINT_RESOURCE_TYPE, Texture2D::get_class_static()), defaults.icon, &TabContainer::set_tab_icon, &TabContainer::get_tab_icon);
 	base_property_helper.register_property(PropertyInfo(Variant::BOOL, "disabled"), defaults.disabled, &TabContainer::set_tab_disabled, &TabContainer::is_tab_disabled);
 	base_property_helper.register_property(PropertyInfo(Variant::BOOL, "hidden"), defaults.hidden, &TabContainer::set_tab_hidden, &TabContainer::is_tab_hidden);

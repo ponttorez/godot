@@ -138,6 +138,9 @@ public:
 
 	void set_title(const String &p_title);
 	String get_title() const;
+	void set_title_text_arguments(const Dictionary &p_arguments);
+	Dictionary get_title_text_arguments() const;
+	void set_title_text_argument(const String &p_name, const Variant &p_value);
 	void set_title_bbcode_enabled(bool p_enabled);
 	bool is_title_bbcode_enabled() const;
 

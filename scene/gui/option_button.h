@@ -103,6 +103,7 @@ public:
 	void add_item(const String &p_label, int p_id = -1);
 
 	void set_item_text(int p_idx, const String &p_text);
+	void set_item_text_arguments(int p_idx, const Dictionary &p_arguments);
 	void set_item_icon(int p_idx, const Ref<Texture2D> &p_icon);
 	void set_item_id(int p_idx, int p_id);
 	void set_item_metadata(int p_idx, const Variant &p_metadata);
@@ -111,6 +112,7 @@ public:
 	void set_item_auto_translate_mode(int p_idx, AutoTranslateMode p_mode);
 
 	String get_item_text(int p_idx) const;
+	Dictionary get_item_text_arguments(int p_idx) const;
 	Ref<Texture2D> get_item_icon(int p_idx) const;
 	int get_item_id(int p_idx) const;
 	int get_item_index(int p_id) const;

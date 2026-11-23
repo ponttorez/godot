@@ -86,6 +86,13 @@
 				Returns the text of the item at index [param idx].
 			</description>
 		</method>
+		<method name="get_item_text_arguments" qualifiers="const">
+			<return type="Dictionary" />
+			<param index="0" name="idx" type="int" />
+			<description>
+				Returns the arguments formatted in the translated text of the item at [param idx], see [method set_item_text_arguments].
+			</description>
+		</method>
 		<method name="get_item_tooltip" qualifiers="const">
 			<return type="String" />
 			<param index="0" name="idx" type="int" />
@@ -212,6 +219,14 @@
 				Sets the text of the item at index [param idx].
 			</description>
 		</method>
+		<method name="set_item_text_arguments">
+			<return type="void" />
+			<param index="0" name="idx" type="int" />
+			<param index="1" name="arguments" type="Dictionary" />
+			<description>
+				Sets the arguments formatted in the translated text of the item at [param idx] like [member Label.text_arguments]. Its tooltip is formatted with them too.
+			</description>
+		</method>
 		<method name="set_item_tooltip">
 			<return type="void" />
 			<param index="0" name="idx" type="int" />
@@ -258,6 +273,10 @@
 		</member>
 		<member name="popup/item_{index}/text" type="String" setter="" getter="" default="&quot;&quot;">
 			The text of the item at [code]index[/code].
+			[b]Note:[/b] [code]index[/code] is a value in the [code]0 .. item_count - 1[/code] range.
+		</member>
+		<member name="popup/item_{index}/text_arguments" type="Dictionary" setter="" getter="" default="{}">
+			The arguments formatted in the translated text of the item at [code]index[/code], like [member Label.text_arguments].
 			[b]Note:[/b] [code]index[/code] is a value in the [code]0 .. item_count - 1[/code] range.
 		</member>
 		<member name="search_bar_enabled" type="bool" setter="set_search_bar_enabled" getter="is_search_bar_enabled" default="false">

@@ -46,6 +46,7 @@ STATIC_ASSERT_INCOMPLETE_TYPE(class, Engine);
 #include "core/object/message_queue.h"
 #include "core/object/script_language.h"
 #include "core/string/print_string.h"
+#include "core/string/translation_server.h"
 #include "scene/animation/tween.h"
 #include "scene/main/instance_placeholder.h"
 #include "scene/main/multiplayer_api.h"
@@ -1356,6 +1357,30 @@ void Node::set_auto_translate_mode(AutoTranslateMode p_mode) {
 
 Node::AutoTranslateMode Node::get_auto_translate_mode() const {
 	return data.auto_translate_mode;
+}
+
+String Node::format_text_arguments(const String &p_translated, const Dictionary &p_arguments, const String &p_message, bool p_escape_bbcode) const {
+	if (p_arguments.is_empty()) {
+		return p_translated;
+	}
+	TranslationServer *ts = TranslationServer::get_singleton();
+	const Ref<TranslationDomain> domain = ts->get_or_add_domain(get_translation_domain());
+	String locale = domain->get_locale_override();
+	if (locale.is_empty()) {
+		locale = ts->get_locale();
+	}
+	// The text may come from the translation of the fallback locale.
+	if (can_auto_translate()) {
+		locale = domain->get_message_locale(p_message, _get_translation_context_with_override(StringName()));
+	}
+	if (!p_escape_bbcode) {
+		return ts->format_arguments(p_translated, p_arguments, locale);
+	}
+	Dictionary escaped;
+	for (const KeyValue<Variant, Variant> &E : p_arguments) {
+		escaped[E.key] = TranslationServer::format_argument(E.value).replace("[", "[lb]");
+	}
+	return ts->format_arguments(p_translated, escaped, locale);
 }
 
 bool Node::can_auto_translate() const {

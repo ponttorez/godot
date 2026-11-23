@@ -391,6 +391,13 @@
 				Returns the given column's text alignment.
 			</description>
 		</method>
+		<method name="get_text_arguments" qualifiers="const">
+			<return type="Dictionary" />
+			<param index="0" name="column" type="int" />
+			<description>
+				Returns the arguments formatted in the translated text of the cell at [param column], see [method set_text_arguments].
+			</description>
+		</method>
 		<method name="get_text_direction" qualifiers="const">
 			<return type="int" enum="Control.TextDirection" />
 			<param index="0" name="column" type="int" />
@@ -870,6 +877,14 @@
 			<param index="1" name="text_alignment" type="int" enum="HorizontalAlignment" />
 			<description>
 				Sets the given column's text alignment to [param text_alignment].
+			</description>
+		</method>
+		<method name="set_text_arguments">
+			<return type="void" />
+			<param index="0" name="column" type="int" />
+			<param index="1" name="arguments" type="Dictionary" />
+			<description>
+				Sets the arguments formatted in the translated text of the cell at [param column] like [member Label.text_arguments]. Its tooltip is formatted with them too.
 			</description>
 		</method>
 		<method name="set_text_direction">
