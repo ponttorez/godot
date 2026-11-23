@@ -54,6 +54,8 @@ class AudioStreamEditor : public ColorRect {
 	float _current = 0;
 	bool _dragging = false;
 	bool _pausing = false;
+	// Only plays and stops the stream, for streams that pick what they play, like AudioStreamRandomizer, or have no length.
+	bool _compact = false;
 
 protected:
 	void _notification(int p_what);
@@ -66,6 +68,7 @@ protected:
 	void _on_input_indicator(Ref<InputEvent> p_event);
 	void _seek_to(real_t p_x);
 	void _stream_changed();
+	void _update_mode();
 
 public:
 	void set_stream(const Ref<AudioStream> &p_stream);
