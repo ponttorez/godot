@@ -39,6 +39,15 @@ class TranslationServer : public Object {
 	String locale = "en";
 	String fallback;
 
+	static constexpr const char *SELECTED_LOCALE_PATH = "user://locale.cfg";
+	bool remember_selected_locale = false;
+	// The locale was restored from the saved selection, and is checked once the translations are loaded.
+	bool using_selected_locale = false;
+	String saved_selected_locale; // The content of the file, so it's only written when the selection changes.
+	String _load_selected_locale();
+	void _save_selected_locale();
+	void _check_selected_locale();
+
 	Ref<TranslationDomain> main_domain;
 #ifdef TOOLS_ENABLED
 	Ref<TranslationDomain> editor_domain;
@@ -108,6 +117,8 @@ public:
 #endif // TOOLS_ENABLED
 
 	void set_locale(const String &p_locale);
+	// Removes the locale saved with the remember_selected_locale project setting, so the next launch uses the locale of the system.
+	void forget_selected_locale();
 	String get_locale() const;
 	void set_fallback_locale(const String &p_locale);
 	String get_fallback_locale() const;
