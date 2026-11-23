@@ -1304,12 +1304,28 @@ void PopupMenu::_draw_item_text(RID p_ci, int p_idx, const Vector2 &p_pos, const
 		draw_style.outline_size = p_outline_size;
 		draw_style.outline_color = p_outline_color;
 		item.bbcode->draw_at(p_ci, p_pos, draw_style);
+		if (item.bbcode->has_effects()) {
+			control->set_text_effects_animated(true);
+		}
 		return;
 	}
 	if (p_outline_size > 0 && p_outline_color.a > 0) {
 		item.text_buf->draw_outline(p_ci, p_pos, p_outline_size, p_outline_color);
 	}
 	item.text_buf->draw(p_ci, p_pos, p_color);
+}
+
+void PopupMenu::_process_text_effects(double p_delta) {
+	bool animated = false;
+	for (const Item &item : items) {
+		if (item.bbcode.is_valid() && item.bbcode->has_effects()) {
+			item.bbcode->process_effects(p_delta);
+			animated = true;
+		}
+	}
+	if (!animated) {
+		control->set_text_effects_animated(false);
+	}
 }
 
 void PopupMenu::set_bbcode_enabled(bool p_enabled) {

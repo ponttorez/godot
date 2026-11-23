@@ -74,6 +74,9 @@ void CharFXTransform::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_elapsed_time"), &CharFXTransform::get_elapsed_time);
 	ClassDB::bind_method(D_METHOD("set_elapsed_time", "time"), &CharFXTransform::set_elapsed_time);
 
+	ClassDB::bind_method(D_METHOD("get_appear_time"), &CharFXTransform::get_appear_time);
+	ClassDB::bind_method(D_METHOD("set_appear_time", "time"), &CharFXTransform::set_appear_time);
+
 	ClassDB::bind_method(D_METHOD("is_visible"), &CharFXTransform::is_visible);
 	ClassDB::bind_method(D_METHOD("set_visibility", "visibility"), &CharFXTransform::set_visibility);
 
@@ -107,6 +110,7 @@ void CharFXTransform::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::TRANSFORM2D, "transform"), "set_transform", "get_transform");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2I, "range"), "set_range", "get_range");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "elapsed_time"), "set_elapsed_time", "get_elapsed_time");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "appear_time"), "set_appear_time", "get_appear_time");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "visible"), "set_visibility", "is_visible");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "outline"), "set_outline", "is_outline");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "offset"), "set_offset", "get_offset");

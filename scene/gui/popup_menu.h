@@ -162,6 +162,7 @@ class PopupMenu : public Popup {
 	void _shape_item(int p_idx) const;
 	Size2 _get_item_text_size(int p_idx) const;
 	void _draw_item_text(RID p_ci, int p_idx, const Vector2 &p_pos, const Color &p_color, int p_outline_size, const Color &p_outline_color) const;
+	void _process_text_effects(double p_delta);
 
 	void _accessibility_action_click(const Variant &p_data, int p_idx);
 
@@ -471,6 +472,9 @@ class PopupMenuItems : public Control {
 	GDCLASS(PopupMenuItems, Control);
 
 	PopupMenu *popup = nullptr;
+
+protected:
+	virtual void _process_text_effects(double p_delta) override { popup->_process_text_effects(p_delta); }
 
 public:
 	PopupMenuItems(PopupMenu *p_popup) : popup(p_popup) {}

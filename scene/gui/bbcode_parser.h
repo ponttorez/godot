@@ -80,6 +80,9 @@ void parse_font_options(const Tag &p_tag, const Ref<FontVariation> &r_variation,
 // Features of [opentype_features] and [otf].
 Dictionary parse_opentype_features(const String &p_value);
 
+// Arguments of a custom effect tag, the expressions after its name, see CharFXTransform.env.
+Dictionary parse_effect_environment(const Vector<String> &p_expressions);
+
 // Size part of [img=WxH].
 void parse_image_size(const String &p_value, float &r_width, float &r_height, bool &r_width_percent, bool &r_height_percent);
 

@@ -10,6 +10,11 @@
 		<link title="BBCode in RichTextLabel">$DOCS_URL/tutorials/ui/bbcode_in_richtextlabel.html</link>
 	</tutorials>
 	<members>
+		<member name="appear_time" type="float" setter="set_appear_time" getter="get_appear_time" default="0.0">
+			The time since the character became visible through [member Label.visible_characters] or [member Label.visible_ratio] (in seconds), e.g. to make each typed character bounce or flash as it appears. Characters that are visible from the start count from the moment they are first drawn. Time stops when the control is paused (see [member Node.process_mode]).
+			[b]Note:[/b] Only [Label] and the other controls that draw BBCode without [RichTextLabel] set it, it's always [code]0.0[/code] in [RichTextLabel].
+			[b]Note:[/b] Read-only. Setting this property won't affect drawing.
+		</member>
 		<member name="color" type="Color" setter="set_color" getter="get_color" default="Color(0, 0, 0, 1)" keywords="colour">
 			The color the character will be drawn with.
 		</member>
@@ -44,6 +49,7 @@
 		</member>
 		<member name="outline" type="bool" setter="set_outline" getter="is_outline" default="false">
 			If [code]true[/code], FX transform is called for outline drawing.
+			[b]Note:[/b] [Label] and the other controls that draw BBCode without [RichTextLabel] call the effect once per character with this set to [code]false[/code], and the outlines and shadows of the character follow its result.
 			[b]Note:[/b] Read-only. Setting this property won't affect drawing.
 		</member>
 		<member name="range" type="Vector2i" setter="set_range" getter="get_range" default="Vector2i(0, 0)">

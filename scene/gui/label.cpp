@@ -465,6 +465,7 @@ void Label::_sync_bbcode() const {
 		font_dirty = true;
 	}
 
+	bbcode->set_custom_effects(custom_effects);
 	if (text_dirty) {
 		String ps = paragraph_separator.c_unescape();
 		bbcode->set_text((ps.is_empty() || ps == "\n") ? xl_text : xl_text.replace(ps, "\n"));
@@ -531,6 +532,12 @@ void Label::_shape_bbcode() const {
 
 	if (minsize != old_minsize && (autowrap_mode == TextServer::AUTOWRAP_OFF || !clip || overrun_behavior == TextServer::OVERRUN_NO_TRIMMING)) {
 		const_cast<Label *>(this)->update_minimum_size();
+	}
+}
+
+void Label::_process_text_effects(double p_delta) {
+	if (bbcode_enabled && bbcode.is_valid()) {
+		bbcode->process_effects(p_delta);
 	}
 }
 
@@ -976,6 +983,7 @@ void Label::_notification(int p_what) {
 
 			if (bbcode_enabled) {
 				bbcode->draw(ci, _get_bbcode_rect(), vertical_alignment, _get_bbcode_draw_style());
+				set_text_effects_animated(bbcode->has_effects());
 				break;
 			}
 
@@ -1579,6 +1587,22 @@ bool Label::is_bbcode_enabled() const {
 	return bbcode_enabled;
 }
 
+void Label::set_effects(const Array &p_effects) {
+	custom_effects = p_effects;
+	queue_redraw();
+}
+
+Array Label::get_effects() const {
+	return custom_effects;
+}
+
+void Label::install_effect(const Variant &p_effect) {
+	Ref<RichTextEffect> effect = p_effect;
+	ERR_FAIL_COND_MSG(effect.is_null(), "Invalid RichTextEffect resource.");
+	custom_effects.push_back(effect);
+	queue_redraw();
+}
+
 String Label::get_parsed_text() const {
 	if (!bbcode_enabled) {
 		return xl_text;
@@ -1695,6 +1719,9 @@ void Label::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_bbcode_enabled", "enabled"), &Label::set_bbcode_enabled);
 	ClassDB::bind_method(D_METHOD("is_bbcode_enabled"), &Label::is_bbcode_enabled);
 	ClassDB::bind_method(D_METHOD("get_parsed_text"), &Label::get_parsed_text);
+	ClassDB::bind_method(D_METHOD("set_effects", "effects"), &Label::set_effects);
+	ClassDB::bind_method(D_METHOD("get_effects"), &Label::get_effects);
+	ClassDB::bind_method(D_METHOD("install_effect", "effect"), &Label::install_effect);
 	ClassDB::bind_method(D_METHOD("set_label_settings", "settings"), &Label::set_label_settings);
 	ClassDB::bind_method(D_METHOD("get_label_settings"), &Label::get_label_settings);
 	ClassDB::bind_method(D_METHOD("set_text_direction", "direction"), &Label::set_text_direction);
@@ -1742,6 +1769,7 @@ void Label::_bind_methods() {
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "text", PROPERTY_HINT_MULTILINE_TEXT), "set_text", "get_text");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "bbcode_enabled"), "set_bbcode_enabled", "is_bbcode_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "custom_effects", PROPERTY_HINT_ARRAY_TYPE, MAKE_RESOURCE_TYPE_HINT("RichTextEffect"), (PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_SCRIPT_VARIABLE)), "set_effects", "get_effects");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "label_settings", PROPERTY_HINT_RESOURCE_TYPE, LabelSettings::get_class_static()), "set_label_settings", "get_label_settings");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "horizontal_alignment", PROPERTY_HINT_ENUM, "Left,Center,Right,Fill"), "set_horizontal_alignment", "get_horizontal_alignment");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "vertical_alignment", PROPERTY_HINT_ENUM, "Top,Center,Bottom,Fill"), "set_vertical_alignment", "get_vertical_alignment");

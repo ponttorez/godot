@@ -222,6 +222,12 @@ Control::CursorShape LinkButton::get_cursor_shape(const Point2 &p_pos) const {
 	return is_disabled() ? CURSOR_ARROW : get_default_cursor_shape();
 }
 
+void LinkButton::_process_text_effects(double p_delta) {
+	if (bbcode_enabled) {
+		bbcode->process_effects(p_delta);
+	}
+}
+
 Rect2 LinkButton::_get_bbcode_rect() const {
 	bbcode->set_width(overrun_behavior != TextServer::OVERRUN_NO_TRIMMING ? MAX(1, int(get_size().width)) : -1);
 	// The text aligns itself to the right in RTL layouts.
@@ -248,6 +254,7 @@ void LinkButton::set_bbcode_enabled(bool p_enabled) {
 		bbcode->set_owner(this);
 	} else {
 		bbcode = Ref<BBCodeText>();
+		set_text_effects_animated(false);
 	}
 	_shape();
 	update_minimum_size();
@@ -359,6 +366,7 @@ void LinkButton::_notification(int p_what) {
 				draw_style.outline_size = outline_size;
 				draw_style.outline_color = font_outline_color;
 				bbcode->draw(ci, bbcode_rect, VERTICAL_ALIGNMENT_TOP, draw_style);
+				set_text_effects_animated(bbcode->has_effects());
 				if (do_underline && theme_cache.font.is_valid()) {
 					const Ref<Font> &font = theme_cache.font;
 					int y = font->get_ascent(theme_cache.font_size) + theme_cache.underline_spacing + font->get_underline_position(theme_cache.font_size);
