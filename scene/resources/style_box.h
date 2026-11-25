@@ -44,11 +44,12 @@ class StyleBox : public Resource {
 
 protected:
 	static void _bind_methods();
-	virtual float get_style_margin(Side p_side) const { return 0; }
+	virtual float get_style_margin(Side p_side) const;
 
 	GDVIRTUAL2C_REQUIRED(_draw, RID, Rect2)
 	GDVIRTUAL1RC(Rect2, _get_draw_rect, Rect2)
 	GDVIRTUAL0RC(Size2, _get_minimum_size)
+	GDVIRTUAL1RC(float, _get_style_margin, Side)
 	GDVIRTUAL2RC(bool, _test_mask, Point2, Rect2)
 
 public:
